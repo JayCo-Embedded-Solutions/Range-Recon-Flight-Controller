@@ -1,5 +1,7 @@
 Debug/
 Release/
+Drivers/
+Middlewares/
 
 *.o
 *.d
