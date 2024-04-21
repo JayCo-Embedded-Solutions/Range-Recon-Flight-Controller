@@ -4,17 +4,18 @@
  *  Created on: Apr 9, 2024
  *      Author: Cody
  */
-#include "stm32f1xx_hal.h"
+#include "stm32f4xx_hal.h"
 #include "nRF24l01.h"
+#include <stdbool.h>
 
 extern SPI_HandleTypeDef hspi1;
 #define NRF24_SPI &hspi1
 
-#define NRF24_CE_PORT	GPIOA
-#define NRF24_CE_PIN	GPIO_PIN_0
+#define NRF24_CE_PORT	GPIOC
+#define NRF24_CE_PIN	GPIO_PIN_7
 
-#define NRF24_CS_PORT	GPIOA
-#define NRF24_CS_PIN	GPIO_PIN_1
+#define NRF24_CS_PORT	GPIOB
+#define NRF24_CS_PIN	GPIO_PIN_6
 
 /**
  * Writes a single byte to a particular register on the nRF24.
