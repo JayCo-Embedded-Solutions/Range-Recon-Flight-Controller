@@ -4,6 +4,7 @@
  *  Created on: Apr 9, 2024
  *      Author: Cody
  */
+#include <stdbool.h>
 
 #ifndef SRC_NRF24L01_H_
 #define SRC_NRF24L01_H_

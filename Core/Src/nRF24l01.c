@@ -6,7 +6,6 @@
  */
 #include "stm32f1xx_hal.h"
 #include "nRF24l01.h"
-#include <stdbool.h>
 
 extern SPI_HandleTypeDef hspi1;
 #define NRF24_SPI &hspi1
