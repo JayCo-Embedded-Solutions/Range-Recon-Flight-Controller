@@ -39,6 +39,8 @@ void mpu6500Init() {
   // Run the accelerometer's self-test
 //  accelSelfTest();
 
+  // TODO: read WHOAMI register to ensure the device is responsive (should return 0x70)
+
   // FIFO overwrites old data when full, no FSYNC, default low-pass filter settings (see register map page 13/14)
   mpu6500WriteReg(MPU6500_CONFIG, 0b00000000);
 
@@ -63,6 +65,17 @@ void mpu6500Init() {
   // Disable Wake On Motion interrupt, disable FIFO overflow interrupt, enable FSYNC interrupt,
   //  enable Raw Sensor Data Ready interrupt
   mpu6500WriteReg(MPU6500_INT_ENABLE, 0b00001001);
+
+  // Enable Digital Motion Processing features, enable FIFO operation, disable I2C master interface,
+  //  don't reset any modules (unnecessary since everything just started up)
+  mpu6500WriteReg(MPU6500_USER_CTRL, 0b11000000);
+
+  // Disable sleep mode, disable cycle mode, disable gyro standby, enable temperature sensor,
+  //  use best available clock source (PLL if ready, else use 20MHz internal oscillator)
+  mpu6500WriteReg(MPU6500_PWR_MGMT_1, 0b00000001);
+
+  // Disable wakeup during Accelerometer Only Low Power mode, enable accelerometer, enable gyroscope
+  mpu6500WriteReg(MPU6500_PWR_MGMT_2, 0b00000000);
 }
 
 /**
