@@ -57,6 +57,20 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define MPU6500_MOSI_Pin GPIO_PIN_1
+#define MPU6500_MOSI_GPIO_Port GPIOC
+#define MPU6500_MISO_Pin GPIO_PIN_2
+#define MPU6500_MISO_GPIO_Port GPIOC
+#define NRF24_SCK_Pin GPIO_PIN_5
+#define NRF24_SCK_GPIO_Port GPIOA
+#define NRF24_MISO_Pin GPIO_PIN_6
+#define NRF24_MISO_GPIO_Port GPIOA
+#define NRF24_MOSI_Pin GPIO_PIN_7
+#define NRF24_MOSI_GPIO_Port GPIOA
+#define MPU6500_SCK_Pin GPIO_PIN_10
+#define MPU6500_SCK_GPIO_Port GPIOB
+#define MPU6500_CS_Pin GPIO_PIN_12
+#define MPU6500_CS_GPIO_Port GPIOB
 #define NRF24_CE_Pin GPIO_PIN_7
 #define NRF24_CE_GPIO_Port GPIOC
 #define NRF24_CS_Pin GPIO_PIN_6
