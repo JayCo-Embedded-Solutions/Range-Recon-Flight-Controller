@@ -143,3 +143,70 @@ uint8_t mpu6500ReadReg(uint8_t reg) {
 
   return regAddr;
 }
+
+/**
+ * Reads data from the IMU's accelerometer FIFO and fills the given buffer.
+ * Output format is [X, Y, Z].
+ *
+ * TODO: replace hard-coded 2048 value with value from config register
+ *
+ * @param data: A pointer to the buffer to fill. NOTE: data buffer MUST have >= 6 bytes allocated.
+ */
+void getAccelData(int16_t* data) {
+  // Fill X data
+  data[0] = mpu6500ReadReg(MPU6500_ACCEL_XOUT_H) << 8;
+  data[0] |= mpu6500ReadReg(MPU6500_ACCEL_XOUT_L);
+  data[0] /= 2048;
+
+  // Fill Y data
+  data[1] = mpu6500ReadReg(MPU6500_ACCEL_YOUT_H) << 8;
+  data[1] |= mpu6500ReadReg(MPU6500_ACCEL_YOUT_L);
+  data[1] /= 2048;
+
+  // Fill Z data
+  data[2] = mpu6500ReadReg(MPU6500_ACCEL_ZOUT_H) << 8;
+  data[2] |= mpu6500ReadReg(MPU6500_ACCEL_ZOUT_L);
+  data[2] /= 2048;
+}
+
+/**
+ * Reads data from the IMU's gyroscope FIFO and fills the given buffer.
+ * Output format is [X, Y, Z].
+ *
+ * TODO: replace hard-coded "131" value with value dependent on configuration register
+ *
+ * @param data: A pointer to the buffer to fill. NOTE: data buffer MUST have >= 6 bytes allocated.
+ */
+void getGyroData(int16_t* data) {
+  // Fill X data
+  data[0] = mpu6500ReadReg(MPU6500_GYRO_XOUT_H) << 8;
+  data[0] |= mpu6500ReadReg(MPU6500_GYRO_XOUT_L);
+  data[0] /= 131;
+
+  // Fill Y data
+  data[1] = mpu6500ReadReg(MPU6500_GYRO_YOUT_H) << 8;
+  data[1] |= mpu6500ReadReg(MPU6500_GYRO_YOUT_L);
+  data[1] /= 131;
+
+  // Fill Z data
+  data[2] = mpu6500ReadReg(MPU6500_GYRO_ZOUT_H) << 8;
+  data[2] |= mpu6500ReadReg(MPU6500_GYRO_ZOUT_L);
+  data[2] /= 131;
+}
+
+/**
+ * Reads the MPU-6500's die temperature converted to degrees Celsius.
+ *
+ * @param roomTemp: The ambient room temperature.
+ * @param sensitivity: The sensor's temperature sensitivity
+ *
+ * @returns: The die temperature converted to degrees Celsius.
+ */
+int16_t getTempData(int16_t roomTemp, int16_t sensitivity) {
+  // Get raw temp data from sensor
+  int16_t rawTemp = mpu6500ReadReg(MPU6500_TEMP_OUT_H) << 8;
+  rawTemp |= mpu6500ReadReg(MPU6500_TEMP_OUT_L);
+
+  // Convert to degrees celsius and return
+  return ((rawTemp - roomTemp) / sensitivity) + 21;
+}

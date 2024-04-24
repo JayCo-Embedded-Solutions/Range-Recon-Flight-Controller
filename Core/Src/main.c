@@ -116,21 +116,19 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
     test = mpu6500ReadReg(MPU6500_WHO_AM_I);
-    char buf[64];
+    char buf[1000];
 
-    int16_t accelX;
-    accelX = mpu6500ReadReg(MPU6500_ACCEL_XOUT_H) << 8;
-    accelX |= mpu6500ReadReg(MPU6500_ACCEL_XOUT_L);
+    int16_t accelData[3];
+    getAccelData(accelData);
 
-    int16_t accelY;
-    accelY = mpu6500ReadReg(MPU6500_ACCEL_YOUT_H) << 8;
-    accelY |= mpu6500ReadReg(MPU6500_ACCEL_YOUT_L);
+    int16_t gyroData[3];
+    getGyroData(gyroData);
 
-    int16_t accelZ;
-    accelZ = mpu6500ReadReg(MPU6500_ACCEL_ZOUT_H);
-    accelZ |= mpu6500ReadReg(MPU6500_ACCEL_ZOUT_L);
+    int16_t tempData = getTempData(23, 1);
 
-    sprintf(buf, "Value of test: %d\r\nAccelerometer Data: (%hd, %hd, %hd)\r\n\r\n", test, accelX, accelY, accelZ);
+//    sprintf(buf, "Value of test: %d (expecting 112)\r\nAccelerometer Data: (%hd, %hd, %hd)\r\n", test, accelData[0], accelData[1], accelData[2]);
+    sprintf(buf, "Gyroscope Data: (%hd, %hd, %hd)\r\n", gyroData[0], gyroData[1], gyroData[2]);
+//    sprintf(&(buf[strlen(buf)]), "Temperature Data: %hd\r\n\r\n", tempData);
 
 
     // change huartX to your initialized HAL UART peripheral
