@@ -23,11 +23,12 @@
 #define MPU6500_CS_PORT GPIOB
 #define MPU6500_CS_PIN  GPIO_PIN_12
 
+extern SPI_HandleTypeDef hspi2;
 #define MPU6500_SPI &hspi2 // TODO: might want to configure this in a struct instead
 
 #define SPI_TIMEOUT_SHORT 100 // TODO: is this the best way to do this? also is this a good naming scheme?
 #define SPI_WRITE_BITMASK 0b01111111
-#define SPI_READ_BITMASK  0b11111111
+#define SPI_READ_BITMASK  0b10000000
 
 /**
  * TODO
@@ -109,7 +110,8 @@ void mpu6500WriteReg(uint8_t reg, uint8_t data) {
   HAL_GPIO_WritePin(MPU6500_CS_PORT, MPU6500_CS_PIN, GPIO_PIN_RESET);
 
   // Transmit write bit + register address
-  HAL_SPI_Transmit(MPU6500_SPI, &(reg & SPI_WRITE_BITMASK), 1, SPI_TIMEOUT_SHORT);
+  uint8_t regAddr = reg & SPI_WRITE_BITMASK;
+  HAL_SPI_Transmit(MPU6500_SPI, &regAddr, 1, SPI_TIMEOUT_SHORT);
 
   // Transmit data to write
   HAL_SPI_Transmit(MPU6500_SPI, &data, 1, SPI_TIMEOUT_SHORT);
@@ -118,3 +120,26 @@ void mpu6500WriteReg(uint8_t reg, uint8_t data) {
   HAL_GPIO_WritePin(MPU6500_CS_PORT, MPU6500_CS_PIN, GPIO_PIN_SET);
 }
 
+/**
+ * Reads a single byte of data from a particular register. TODO: make this return an error code if unsuccessful
+ *
+ * @param reg: The 7-bit register address to read from.
+ *
+ * @returns: The 8 bits of data stored in the register.
+ */
+uint8_t mpu6500ReadReg(uint8_t reg) {
+  // Pull CS pin low to begin transfer
+  HAL_GPIO_WritePin(MPU6500_CS_PORT, MPU6500_CS_PIN, GPIO_PIN_RESET);
+
+  // Transmit read bit + register address
+  uint8_t regAddr = reg | SPI_READ_BITMASK;
+  HAL_SPI_Transmit(MPU6500_SPI, &regAddr, 1, SPI_TIMEOUT_SHORT);
+
+  // Receive data read from register. NOTE: this re-uses the regAddr buffer to save space.
+  HAL_SPI_Receive(MPU6500_SPI, &regAddr, 1, SPI_TIMEOUT_SHORT);
+
+  // Pull CS pin high to end transfer
+  HAL_GPIO_WritePin(MPU6500_CS_PORT, MPU6500_CS_PIN, GPIO_PIN_SET);
+
+  return regAddr;
+}
