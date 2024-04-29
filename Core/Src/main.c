@@ -21,6 +21,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
+#include <string.h>
 #include "nRF24l01.h"
 #include "mpu6500.h"
 /* USER CODE END Includes */
@@ -104,7 +106,6 @@ int main(void)
   nRF24RxMode(rxAddress, 10);
 
   mpu6500Init();
-  uint8_t test;
 
   /* USER CODE END 2 */
 
@@ -115,24 +116,23 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    test = mpu6500ReadReg(MPU6500_WHO_AM_I);
     char buf[1000];
 
     int16_t accelData[3];
     getAccelData(accelData);
 
-    int16_t gyroData[3];
+    float gyroData[3];
     getGyroData(gyroData);
 
     int16_t tempData = getTempData(23, 1);
 
-//    sprintf(buf, "Value of test: %d (expecting 112)\r\nAccelerometer Data: (%hd, %hd, %hd)\r\n", test, accelData[0], accelData[1], accelData[2]);
-    sprintf(buf, "Gyroscope Data: (%hd, %hd, %hd)\r\n", gyroData[0], gyroData[1], gyroData[2]);
+//    sprintf(buf, "Accelerometer Data: (%hd, %hd, %hd)\r\n", accelData[0], accelData[1], accelData[2]);
+    sprintf(buf, "Gyroscope Data: (%f, %f, %f)\r\n", gyroData[0], gyroData[1], gyroData[2]);
 //    sprintf(&(buf[strlen(buf)]), "Temperature Data: %hd\r\n\r\n", tempData);
 
 
     // change huartX to your initialized HAL UART peripheral
-    HAL_UART_Transmit(&huart2, buf, strlen(buf), HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart2, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 //    HAL_Delay(1000);
   }
   /* USER CODE END 3 */

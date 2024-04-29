@@ -177,21 +177,18 @@ void getAccelData(int16_t* data) {
  *
  * @param data: A pointer to the buffer to fill. NOTE: data buffer MUST have >= 6 bytes allocated.
  */
-void getGyroData(int16_t* data) {
+void getGyroData(float* data) {
   // Fill X data
-  data[0] = mpu6500ReadReg(MPU6500_GYRO_XOUT_H) << 8;
-  data[0] |= mpu6500ReadReg(MPU6500_GYRO_XOUT_L);
-  data[0] /= 131;
+  int16_t rawData = mpu6500ReadReg(MPU6500_GYRO_XOUT_H) << 8 | mpu6500ReadReg(MPU6500_GYRO_XOUT_L);
+  data[0] = rawData / 65.5f;
 
   // Fill Y data
-  data[1] = mpu6500ReadReg(MPU6500_GYRO_YOUT_H) << 8;
-  data[1] |= mpu6500ReadReg(MPU6500_GYRO_YOUT_L);
-  data[1] /= 131;
+  rawData = mpu6500ReadReg(MPU6500_GYRO_YOUT_H) << 8 | mpu6500ReadReg(MPU6500_GYRO_YOUT_L);
+  data[1] = rawData / 65.5f;
 
   // Fill Z data
-  data[2] = mpu6500ReadReg(MPU6500_GYRO_ZOUT_H) << 8;
-  data[2] |= mpu6500ReadReg(MPU6500_GYRO_ZOUT_L);
-  data[2] /= 131;
+  rawData = mpu6500ReadReg(MPU6500_GYRO_ZOUT_H) << 8 | mpu6500ReadReg(MPU6500_GYRO_ZOUT_L);
+  data[2] = rawData / 65.5f;
 }
 
 /**
