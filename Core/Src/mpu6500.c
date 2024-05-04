@@ -173,7 +173,7 @@ void getAccelData(int16_t* data) {
  * Reads data from the IMU's gyroscope FIFO and fills the given buffer.
  * Output format is [X, Y, Z].
  *
- * TODO: replace hard-coded "131" value with value dependent on configuration register
+ * TODO: replace hard-coded float value with value dependent on configuration register
  *
  * @param data: A pointer to the buffer to fill. NOTE: data buffer MUST have >= 6 bytes allocated.
  */
