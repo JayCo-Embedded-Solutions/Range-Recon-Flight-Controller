@@ -171,13 +171,9 @@ void nRF24Init() {
 	// disable the chip before configuring the device
 	HAL_GPIO_WritePin(NRF24_CE_PORT, NRF24_CE_PIN, GPIO_PIN_RESET);
 
-	uint8_t hello = nRF24ReadReg(STATUS);
-
 	nRF24Reset(0);
 
 	nRF24WriteReg(CONFIG, 0);
-
-	uint8_t test = nRF24ReadReg(CONFIG);
 
 	nRF24WriteReg(EN_AA, 0); // don't need auto-ack
 
@@ -214,8 +210,6 @@ void nRF24TxMode(uint8_t* address, uint8_t channel) {
   config = config | (0b10);
   nRF24WriteReg(CONFIG, config);
 
-  uint8_t configCheck = nRF24ReadReg(CONFIG);
-
   // enable the chip again after configuring
   HAL_GPIO_WritePin(NRF24_CE_PORT, NRF24_CE_PIN, GPIO_PIN_SET);
 }
@@ -247,7 +241,6 @@ int nRF24Transmit(uint8_t* data) {
   // note that the "buffer empty" bit will be set if the device is disconnected,
   //  so also check that one of the reserved 0 bits is not set
 
-  uint8_t configCheck = nRF24ReadReg(CONFIG);
   uint8_t fifoStatus = nRF24ReadReg(FIFO_STATUS);
   if (!(fifoStatus & 0b10000) || (fifoStatus & 0b1000)) {
     return -1;
@@ -284,8 +277,6 @@ void nRF24RxMode(uint8_t* address, uint8_t channel) {
   uint8_t config = nRF24ReadReg(CONFIG);
   config = config | 0b11;
   nRF24WriteReg(CONFIG, config);
-
-  uint8_t configCheck = nRF24ReadReg(CONFIG);
 
   // enable the chip again after configuring
   HAL_GPIO_WritePin(NRF24_CE_PORT, NRF24_CE_PIN, GPIO_PIN_SET);

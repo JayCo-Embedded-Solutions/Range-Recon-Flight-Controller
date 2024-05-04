@@ -61,6 +61,10 @@ void Error_Handler(void);
 #define NRF24_CE_GPIO_Port GPIOC
 #define NRF24_CS_Pin GPIO_PIN_6
 #define NRF24_CS_GPIO_Port GPIOB
+#define OV7670_SDA_Pin GPIO_PIN_7
+#define OV7670_SDA_GPIO_Port GPIOB
+#define OV7670_SCL_Pin GPIO_PIN_8
+#define OV7670_SCL_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
