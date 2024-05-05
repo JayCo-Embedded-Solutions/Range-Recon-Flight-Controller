@@ -130,13 +130,29 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  int numBytes = 0;
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 
-//    status = HAL_I2C_IsDeviceReady(&hi2c1, OV7670_I2C_ADDRESS, 10, 100);
+    // want to get the number of bytes in a single row
+    // need to count the number of PCLK pulses while HREF is high (one pulse)
+
+    // initialize byte counter
+    uint8_t prevVal = 0;
+
+    // while HREF is high:
+    while (HAL_GPIO_ReadPin(OV7670_HREF_PORT, OV7670_HREF_PIN)) {
+      // for each PCLK pulse, add 1 to byte counter
+      uint8_t curVal = HAL_GPIO_ReadPin(OV7670_PCLK_PORT, OV7670_PCLK_PIN);
+      if (curVal && !prevVal) {
+        numBytes++;
+      }
+
+      prevVal = curVal;
+    }
   }
   /* USER CODE END 3 */
 }
@@ -497,6 +513,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(NRF24_CE_GPIO_Port, NRF24_CE_Pin, GPIO_PIN_RESET);
@@ -519,12 +536,24 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Alternate = GPIO_AF0_MCO;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : OV7670_PCLK_Pin */
+  GPIO_InitStruct.Pin = OV7670_PCLK_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(OV7670_PCLK_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pins : PB3 PB5 NRF24_CS_Pin */
   GPIO_InitStruct.Pin = GPIO_PIN_3|GPIO_PIN_5|NRF24_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : OV7670_HREF_Pin */
+  GPIO_InitStruct.Pin = OV7670_HREF_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(OV7670_HREF_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */

@@ -8,9 +8,17 @@
 #include "ov7670.h"
 #include "stm32f4xx_hal.h"
 
-
 extern I2C_HandleTypeDef hi2c1;
 #define OV7670_I2C_HANDLE &hi2c1
+
+/**
+ * Initializes register values of the OV7670 to enable RGB streaming.
+ *
+ * @returns: HAL status; will return early if any I2C transmission fails.
+ */
+HAL_StatusTypeDef ov7670Init() {
+  return ov7670WriteReg(OV7670_COM7, 0b00000100); // Set output to raw RGB.
+}
 
 /**
  * Writes 1 byte of data to a particular register on the OV7670.
@@ -21,9 +29,9 @@ extern I2C_HandleTypeDef hi2c1;
  * @param reg: The register address to write to.
  * @param data: The data to write to the register.
  *
- * @returns: 0 if successful, 1+ if failed.
+ * @returns: HAL status; will return early if any I2C transmission fails.
  */
-uint8_t ov7670WriteReg(uint8_t reg, uint8_t data) {
+HAL_StatusTypeDef ov7670WriteReg(uint8_t reg, uint8_t data) {
   HAL_StatusTypeDef status = HAL_I2C_Master_Transmit(OV7670_I2C_HANDLE, OV7670_I2C_ADDRESS, &reg, 1, I2C_TIMEOUT);
   if (status != HAL_OK) {
     return status;
@@ -41,9 +49,9 @@ uint8_t ov7670WriteReg(uint8_t reg, uint8_t data) {
  * @param reg: The register address to read from.
  * @param buf: A pointer to where the register value should be stored.
  *
- * @returns: 0 if succesful, 1+ if failed.
+ * @returns: HAL status; will return early if any I2C transmission fails.
  */
-uint8_t ov7670ReadReg(uint8_t reg, uint8_t* buf) {
+HAL_StatusTypeDef ov7670ReadReg(uint8_t reg, uint8_t* buf) {
   HAL_StatusTypeDef status = HAL_I2C_Master_Transmit(OV7670_I2C_HANDLE, OV7670_I2C_ADDRESS, &reg, 1, I2C_TIMEOUT);
   if (status != HAL_OK) {
     return status;
