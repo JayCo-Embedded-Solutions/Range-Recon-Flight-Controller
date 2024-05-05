@@ -8,6 +8,10 @@
 #ifndef INC_MPU6500_H_
 #define INC_MPU6500_H_
 
+extern float gyroXOffset;
+extern float gyroYOffset;
+extern float gyroZOffset;
+
 /* Register Map */
 
 /* Gyroscope Self-Test Registers */
@@ -136,6 +140,7 @@ uint8_t mpu6500ReadReg(uint8_t reg);
 void getAccelData(int16_t* data);
 void getGyroData(float* data);
 int16_t getTempData(int16_t roomTemp, int16_t sensitivity);
+void calibrateGyro();
 
 #endif /* INC_MPU6500_H_ */
 

@@ -34,7 +34,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -105,6 +104,7 @@ int main(void)
   MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
 
+  mpu6500Init();
   initializeMotors();
   /* USER CODE END 2 */
 
@@ -125,7 +125,7 @@ int main(void)
 	  getGyroData(gyroData);
 
 	  //    sprintf(buf, "Accelerometer Data: (%hd, %hd, %hd)\r\n", accelData[0], accelData[1], accelData[2]);
-	  sprintf(buf, "Gyroscope Data: (%f, %f, %f)\r\n", gyroData[0], gyroData[1], gyroData[2]);
+	  sprintf(buf, "Gyroscope Data: (%0.4f, %0.4f, %0.4f)\r\n", gyroData[0] - gyroXOffset, gyroData[1] - gyroYOffset, gyroData[2] - gyroZOffset);
 	  //    sprintf(&(buf[strlen(buf)]), "Temperature Data: %hd\r\n\r\n", tempData);
 
 

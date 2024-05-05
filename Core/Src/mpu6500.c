@@ -20,6 +20,8 @@
 #include "stm32f3xx_hal.h"
 #include "mpu6500.h"
 
+float gyroXOffset = 0, gyroYOffset = 0, gyroZOffset = 0;
+
 #define MPU6500_CS_PORT GPIOB
 #define MPU6500_CS_PIN  GPIO_PIN_12
 
@@ -77,6 +79,9 @@ void mpu6500Init() {
 
   // Disable wakeup during Accelerometer Only Low Power mode, enable accelerometer, enable gyroscope
   mpu6500WriteReg(MPU6500_PWR_MGMT_2, 0b00000000);
+
+  // Calibrate the gyro to determine offset values
+  calibrateGyro();
 }
 
 /**
@@ -206,4 +211,27 @@ int16_t getTempData(int16_t roomTemp, int16_t sensitivity) {
 
   // Convert to degrees celsius and return
   return ((rawTemp - roomTemp) / sensitivity) + 21;
+}
+
+/**
+ * Samples the gyroscope data on startup to determine offset values. Craft should be stationary while this is happening
+ */
+void calibrateGyro() {
+	// declare number of desired samples, arrays to store individual and total sample data
+	uint8_t numSamples = 20;
+	float gyroSample[3];
+	float offsetData[] = {0, 0, 0};
+
+	// collect samples and store the sum in offSetData array
+	for(int i = 0; i<numSamples; i++) {
+		getGyroData(gyroSample);
+		offsetData[0] += gyroSample[0];
+		offsetData[1] += gyroSample[1];
+		offsetData[2] += gyroSample[2];
+	}
+
+	// assign offset values based on the average
+	gyroXOffset = offsetData[0]/20;
+	gyroYOffset = offsetData[1]/20;
+	gyroZOffset = offsetData[2]/20;
 }
