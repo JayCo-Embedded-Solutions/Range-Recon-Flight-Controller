@@ -136,7 +136,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-    status = HAL_I2C_IsDeviceReady(&hi2c1, OV7670_I2C_ADDRESS, 10, 100);
+//    status = HAL_I2C_IsDeviceReady(&hi2c1, OV7670_I2C_ADDRESS, 10, 100);
   }
   /* USER CODE END 3 */
 }

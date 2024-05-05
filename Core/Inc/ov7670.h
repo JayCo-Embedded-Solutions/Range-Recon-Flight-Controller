@@ -12,7 +12,7 @@
 uint8_t ov7670WriteReg(uint8_t reg, uint8_t data);
 uint8_t ov7670ReadReg(uint8_t reg, uint8_t* buf);
 
-#define OV7670_I2C_ADDRESS 0x2A
+#define OV7670_I2C_ADDRESS (0x21 << 1)
 #define I2C_TIMEOUT 100
 
 // NOTE: THIS REGISTER LIST IS INCOMPLETE. Registers should be added as they are needed.
