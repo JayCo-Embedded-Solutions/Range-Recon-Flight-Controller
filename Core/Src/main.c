@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "nRF24l01.h"
+#include "mpu6500.h"
 #include "stdio.h"
 #include "string.h"
 /* USER CODE END Includes */
@@ -104,20 +105,7 @@ int main(void)
   MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
 
-//  uint8_t rxAddress[5] = {0xEE, 0xDD, 0xCC, 0xBB, 0xAA};
-//  uint8_t channelNum = 10;
-//  uint8_t rxPipe = 1;
-//  uint8_t rxData[8];
-//
-//  nRF24Init();
-//  nRF24RxMode(rxAddress, channelNum);
-
   initializeMotors();
-
-//  int map(uint32_t x, uint32_t in_min, uint32_t in_max, uint32_t out_min, uint32_t out_max) {
-//	  returnVal = (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-//    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-//  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -127,22 +115,23 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-//	  uint32_t xVal, yVal;
-//	  if(isDataAvailable(rxPipe)) {
-//		  nRF24Receive(rxData);
-//		  xVal = (rxData[0] << 24 | rxData[1] << 16 | rxData[2] << 8 | rxData[3]);
-//		  yVal = (rxData[4] << 24 | rxData[5] << 16 | rxData[6] << 8 | rxData[7]);
-//		  HAL_IWDG_Refresh(&hiwdg);
-//	  }
-//
-//
-//	  if(xVal > 2200) {
-//		  uint8_t mappedTimerVal = (xVal - 2200)/100 + 60;
-//		  setAllMotors(mappedTimerVal);
-//	  }
-//	  else {
-//		  setAllMotors(50);
-//	  }
+
+	  char buf[1000];
+
+	  int16_t accelData[3];
+	  getAccelData(accelData);
+
+	  float gyroData[3];
+	  getGyroData(gyroData);
+
+	  //    sprintf(buf, "Accelerometer Data: (%hd, %hd, %hd)\r\n", accelData[0], accelData[1], accelData[2]);
+	  sprintf(buf, "Gyroscope Data: (%f, %f, %f)\r\n", gyroData[0], gyroData[1], gyroData[2]);
+	  //    sprintf(&(buf[strlen(buf)]), "Temperature Data: %hd\r\n\r\n", tempData);
+
+
+	  // change huartX to your initialized HAL UART peripheral
+	  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
+	  //    HAL_Delay(1000);
   }
   /* USER CODE END 3 */
 }
@@ -253,7 +242,7 @@ static void MX_SPI2_Init(void)
   hspi2.Instance = SPI2;
   hspi2.Init.Mode = SPI_MODE_MASTER;
   hspi2.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi2.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
@@ -263,7 +252,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi2.Init.CRCPolynomial = 7;
   hspi2.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi2.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  hspi2.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
   if (HAL_SPI_Init(&hspi2) != HAL_OK)
   {
     Error_Handler();
@@ -403,40 +392,30 @@ static void MX_GPIO_Init(void)
 /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOF_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15|NRF_CE_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12|GPIO_OUTPUTB6_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIO_OUTPUT_GPIO_Port, GPIO_OUTPUT_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(NRF_NCS_GPIO_Port, NRF_NCS_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pins : PC15 NRF_CE_Pin */
-  GPIO_InitStruct.Pin = GPIO_PIN_15|NRF_CE_Pin;
+  /*Configure GPIO pins : PB12 GPIO_OUTPUTB6_Pin */
+  GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_OUTPUTB6_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PA0 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  /*Configure GPIO pin : GPIO_OUTPUT_Pin */
+  GPIO_InitStruct.Pin = GPIO_OUTPUT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : NRF_NCS_Pin */
-  GPIO_InitStruct.Pin = NRF_NCS_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(NRF_NCS_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIO_OUTPUT_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
