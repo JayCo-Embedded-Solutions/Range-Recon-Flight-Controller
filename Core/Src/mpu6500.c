@@ -81,7 +81,7 @@ void mpu6500Init() {
   // Disable wakeup during Accelerometer Only Low Power mode, enable accelerometer, enable gyroscope
   mpu6500WriteReg(MPU6500_PWR_MGMT_2, 0b00000000);
 
-  HAL_Delay(100);
+  HAL_Delay(1000);
 
   // Calibrate the gyro to determine offset values
   calibrateGyro();

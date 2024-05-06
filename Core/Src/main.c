@@ -138,8 +138,8 @@ int main(void)
 	  float gyroData[3];
 	  getGyroData(gyroData);
 
-	  sprintf(buf, "%0.4f, %0.4f, %0.4f \r\n", accelFilteredX - accelXOffset, accelFilteredY - accelYOffset, accelFilteredZ - accelZOffset);
-//	  sprintf(buf, "%0.4f, %0.4f, %0.4f, 1,\r\n", gyroData[0] - gyroXOffset, gyroData[1] - gyroYOffset, gyroData[2] - gyroZOffset);
+//	  sprintf(buf, "%0.4f, %0.4f, %0.4f \r\n", accelFilteredX - accelXOffset, accelFilteredY - accelYOffset, accelFilteredZ - accelZOffset);
+	  sprintf(buf, "%0.4f, %0.4f, %0.4f \r\n", gyroData[0] - gyroXOffset, gyroData[1] - gyroYOffset, gyroData[2] - gyroZOffset);
 	  //    sprintf(&(buf[strlen(buf)]), "Temperature Data: %hd\r\n\r\n", tempData);
 
 
