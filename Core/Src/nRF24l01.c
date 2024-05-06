@@ -12,7 +12,7 @@ extern SPI_HandleTypeDef hspi1;
 #define NRF24_SPI &hspi1
 
 #define NRF24_CE_PORT	GPIOC
-#define NRF24_CE_PIN	GPIO_PIN_7
+#define NRF24_CE_PIN	GPIO_PIN_8
 
 #define NRF24_CS_PORT	GPIOB
 #define NRF24_CS_PIN	GPIO_PIN_6
