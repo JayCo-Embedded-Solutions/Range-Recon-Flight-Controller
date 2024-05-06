@@ -157,21 +157,19 @@ uint8_t mpu6500ReadReg(uint8_t reg) {
  *
  * @param data: A pointer to the buffer to fill. NOTE: data buffer MUST have >= 6 bytes allocated.
  */
-void getAccelData(int16_t* data) {
+void getAccelData(float* data) {
+  int16_t rawData;
   // Fill X data
-  data[0] = mpu6500ReadReg(MPU6500_ACCEL_XOUT_H) << 8;
-  data[0] |= mpu6500ReadReg(MPU6500_ACCEL_XOUT_L);
-  data[0] /= 2048;
+  rawData = mpu6500ReadReg(MPU6500_ACCEL_XOUT_H) << 8 | mpu6500ReadReg(MPU6500_ACCEL_XOUT_L);
+  data[0] = rawData/2048.0f;
 
   // Fill Y data
-  data[1] = mpu6500ReadReg(MPU6500_ACCEL_YOUT_H) << 8;
-  data[1] |= mpu6500ReadReg(MPU6500_ACCEL_YOUT_L);
-  data[1] /= 2048;
+  rawData = mpu6500ReadReg(MPU6500_ACCEL_YOUT_H) << 8 | mpu6500ReadReg(MPU6500_ACCEL_YOUT_L);
+  data[1] = rawData/2048.0f;
 
   // Fill Z data
-  data[2] = mpu6500ReadReg(MPU6500_ACCEL_ZOUT_H) << 8;
-  data[2] |= mpu6500ReadReg(MPU6500_ACCEL_ZOUT_L);
-  data[2] /= 2048;
+  rawData = mpu6500ReadReg(MPU6500_ACCEL_ZOUT_H) << 8 | mpu6500ReadReg(MPU6500_ACCEL_ZOUT_L);
+  data[2] = rawData/2048.0f;
 }
 
 /**
@@ -218,7 +216,7 @@ int16_t getTempData(int16_t roomTemp, int16_t sensitivity) {
  */
 void calibrateGyro() {
 	// declare number of desired samples, arrays to store individual and total sample data
-	uint8_t numSamples = 20;
+	uint8_t numSamples = 30;
 	float gyroSample[3];
 	float offsetData[] = {0, 0, 0};
 
@@ -231,7 +229,7 @@ void calibrateGyro() {
 	}
 
 	// assign offset values based on the average
-	gyroXOffset = offsetData[0]/20;
-	gyroYOffset = offsetData[1]/20;
-	gyroZOffset = offsetData[2]/20;
+	gyroXOffset = offsetData[0]/numSamples;
+	gyroYOffset = offsetData[1]/numSamples;
+	gyroZOffset = offsetData[2]/numSamples;
 }

@@ -118,20 +118,20 @@ int main(void)
 
 	  char buf[1000];
 
-	  int16_t accelData[3];
+	  float accelData[3];
 	  getAccelData(accelData);
 
 	  float gyroData[3];
 	  getGyroData(gyroData);
 
-	  //    sprintf(buf, "Accelerometer Data: (%hd, %hd, %hd)\r\n", accelData[0], accelData[1], accelData[2]);
-	  sprintf(buf, "Gyroscope Data: (%0.4f, %0.4f, %0.4f)\r\n", gyroData[0] - gyroXOffset, gyroData[1] - gyroYOffset, gyroData[2] - gyroZOffset);
+	  sprintf(buf, "%0.4f, %0.4f, %0.4f, 1,\r\n", accelData[0], accelData[1], accelData[2]);
+//	  sprintf(buf, "%0.4f, %0.4f, %0.4f, 1,\r\n", gyroData[0] - gyroXOffset, gyroData[1] - gyroYOffset, gyroData[2] - gyroZOffset);
 	  //    sprintf(&(buf[strlen(buf)]), "Temperature Data: %hd\r\n\r\n", tempData);
 
 
 	  // change huartX to your initialized HAL UART peripheral
 	  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
-	  //    HAL_Delay(1000);
+	  HAL_Delay(1);
   }
   /* USER CODE END 3 */
 }
@@ -154,7 +154,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL2;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
   RCC_OscInitStruct.PLL.PREDIV = RCC_PREDIV_DIV1;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
@@ -167,10 +167,10 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     Error_Handler();
   }
@@ -206,7 +206,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -283,7 +283,7 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 320-1;
+  htim1.Init.Prescaler = 1440-1;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim1.Init.Period = 1000-1;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -361,7 +361,7 @@ static void MX_UART4_Init(void)
 
   /* USER CODE END UART4_Init 1 */
   huart4.Instance = UART4;
-  huart4.Init.BaudRate = 115200;
+  huart4.Init.BaudRate = 460800;
   huart4.Init.WordLength = UART_WORDLENGTH_8B;
   huart4.Init.StopBits = UART_STOPBITS_1;
   huart4.Init.Parity = UART_PARITY_NONE;

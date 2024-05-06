@@ -137,7 +137,7 @@ uint8_t gyroSelfTest();
 uint8_t accelSelfTest();
 void mpu6500WriteReg(uint8_t reg, uint8_t data);
 uint8_t mpu6500ReadReg(uint8_t reg);
-void getAccelData(int16_t* data);
+void getAccelData(float* data);
 void getGyroData(float* data);
 int16_t getTempData(int16_t roomTemp, int16_t sensitivity);
 void calibrateGyro();
