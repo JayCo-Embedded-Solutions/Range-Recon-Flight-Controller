@@ -11,6 +11,9 @@
 extern float gyroXOffset;
 extern float gyroYOffset;
 extern float gyroZOffset;
+extern float accelXOffset;
+extern float accelYOffset;
+extern float accelZOffset;
 
 /* Register Map */
 
@@ -141,6 +144,7 @@ void getAccelData(float* data);
 void getGyroData(float* data);
 int16_t getTempData(int16_t roomTemp, int16_t sensitivity);
 void calibrateGyro();
+void calibrateAccel();
 
 #endif /* INC_MPU6500_H_ */
 

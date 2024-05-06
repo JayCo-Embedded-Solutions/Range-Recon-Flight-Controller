@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include "nRF24l01.h"
 #include "mpu6500.h"
+#include "firFilter.h"
 #include "stdio.h"
 #include "string.h"
 /* USER CODE END Includes */
@@ -106,6 +107,16 @@ int main(void)
 
   mpu6500Init();
   initializeMotors();
+
+  firFilter accelXDataLPF;
+  firFilterInit(&accelXDataLPF);
+
+  firFilter accelYDataLPF;
+  firFilterInit(&accelYDataLPF);
+
+  firFilter accelZDataLPF;
+  firFilterInit(&accelZDataLPF);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -118,20 +129,23 @@ int main(void)
 
 	  char buf[1000];
 
-	  float accelData[3];
-	  getAccelData(accelData);
+	  float accelDataRaw[3];
+	  getAccelData(accelDataRaw);
+	  float accelFilteredX = firFilterUpdate(&accelXDataLPF, accelDataRaw[0]);
+	  float accelFilteredY = firFilterUpdate(&accelYDataLPF, accelDataRaw[1]);
+	  float accelFilteredZ = firFilterUpdate(&accelZDataLPF, accelDataRaw[2]);
 
 	  float gyroData[3];
 	  getGyroData(gyroData);
 
-	  sprintf(buf, "%0.4f, %0.4f, %0.4f, 1,\r\n", accelData[0], accelData[1], accelData[2]);
+	  sprintf(buf, "%0.4f, %0.4f, %0.4f \r\n", accelFilteredX - accelXOffset, accelFilteredY - accelYOffset, accelFilteredZ - accelZOffset);
 //	  sprintf(buf, "%0.4f, %0.4f, %0.4f, 1,\r\n", gyroData[0] - gyroXOffset, gyroData[1] - gyroYOffset, gyroData[2] - gyroZOffset);
 	  //    sprintf(&(buf[strlen(buf)]), "Temperature Data: %hd\r\n\r\n", tempData);
 
 
 	  // change huartX to your initialized HAL UART peripheral
 	  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
-	  HAL_Delay(1);
+	  HAL_Delay(10);
   }
   /* USER CODE END 3 */
 }

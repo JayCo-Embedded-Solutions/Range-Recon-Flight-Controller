@@ -21,6 +21,7 @@
 #include "mpu6500.h"
 
 float gyroXOffset = 0, gyroYOffset = 0, gyroZOffset = 0;
+float accelXOffset = 0, accelYOffset = 0, accelZOffset = 0;
 
 #define MPU6500_CS_PORT GPIOB
 #define MPU6500_CS_PIN  GPIO_PIN_12
@@ -80,8 +81,13 @@ void mpu6500Init() {
   // Disable wakeup during Accelerometer Only Low Power mode, enable accelerometer, enable gyroscope
   mpu6500WriteReg(MPU6500_PWR_MGMT_2, 0b00000000);
 
+  HAL_Delay(100);
+
   // Calibrate the gyro to determine offset values
   calibrateGyro();
+
+  // Calibrate the accelerometer to determine offset values
+  calibrateAccel();
 }
 
 /**
@@ -221,7 +227,7 @@ void calibrateGyro() {
 	float offsetData[] = {0, 0, 0};
 
 	// collect samples and store the sum in offSetData array
-	for(int i = 0; i<numSamples; i++) {
+	for(uint8_t i = 0; i<numSamples; i++) {
 		getGyroData(gyroSample);
 		offsetData[0] += gyroSample[0];
 		offsetData[1] += gyroSample[1];
@@ -229,7 +235,30 @@ void calibrateGyro() {
 	}
 
 	// assign offset values based on the average
-	gyroXOffset = offsetData[0]/numSamples;
-	gyroYOffset = offsetData[1]/numSamples;
-	gyroZOffset = offsetData[2]/numSamples;
+	gyroXOffset = offsetData[0] / numSamples;
+	gyroYOffset = offsetData[1] / numSamples;
+	gyroZOffset = offsetData[2] / numSamples;
+}
+
+/**
+ * Samples the accelerometer data on startup to determine offset values. Craft should be stationary while this is happening
+ */
+void calibrateAccel() {
+	// declare number of desired samples, arrays to store individual and total sample data
+	uint8_t numSamples = 30;
+	float accelSample[3];
+	float offsetData[] = {0, 0, 0};
+
+	// collect samples and store the sum in offSetData array
+	for(uint8_t i = 0; i<numSamples; i++) {
+		getAccelData(accelSample);
+		offsetData[0] += accelSample[0];
+		offsetData[1] += accelSample[1];
+		offsetData[2] += accelSample[2] - 9.8;		// subtract 9.8 for grav constant on Z axis
+	}
+
+	// collect samples and store the sum in offSetData array
+	accelXOffset = offsetData[0] / numSamples;
+	accelYOffset = offsetData[1] / numSamples;
+	accelZOffset = offsetData[2] / numSamples;
 }
