@@ -15,18 +15,18 @@
 HAL_StatusTypeDef ov7670Init() {
   HAL_StatusTypeDef status;
 
-  // Write default values
-  for (int i = 0; i < 0xff; i++) {
-    // 0xff is the "end signal" of the array, as seen in the header file.
-    if (ov7670_default_regs[i].reg_num == 0xff) {
-      break;
-    }
-
-    status = ov7670WriteReg(ov7670_default_regs[i].reg_num, ov7670_default_regs[i].value);
-    if (status != HAL_OK) {
-      return status;
-    }
-  }
+//  // Write default values
+//  for (int i = 0; i < 0xff; i++) {
+//    // 0xff is the "end signal" of the array, as seen in the header file.
+//    if (ov7670_default_regs[i].reg_num == 0xff) {
+//      break;
+//    }
+//
+//    status = ov7670WriteReg(ov7670_default_regs[i].reg_num, ov7670_default_regs[i].value);
+//    if (status != HAL_OK) {
+//      return status;
+//    }
+//  }
 
   // Configure output to be RGB565 format
   for (int i = 0; i < 0xff; i++) {

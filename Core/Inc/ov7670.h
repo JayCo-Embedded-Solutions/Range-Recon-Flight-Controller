@@ -198,7 +198,7 @@ static struct regval_list ov7670_default_regs[] = {
  *              2 = 20fps
  *              1 = 30fps
  */
-  { REG_CLKRC, 0x1 }, /* OV: clock scale (30 fps) */
+  { REG_CLKRC, 31 }, /* OV: clock scale (30 fps) */
   { REG_TSLB,  0x04 },  /* OV */
   { REG_COM7, 0 },  /* VGA */
   /*
