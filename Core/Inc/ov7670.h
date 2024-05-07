@@ -10,23 +10,14 @@
 #include <stdint.h>
 #include "stm32f4xx_hal.h"
 
-extern I2C_HandleTypeDef hi2c1;
-#define OV7670_I2C_HANDLE &hi2c1
+extern I2C_HandleTypeDef hi2c2;
+#define OV7670_I2C_HANDLE &hi2c2
+
+extern DCMI_HandleTypeDef hdcmi;
+#define OV7670_DCMI &hdcmi
 
 #define OV7670_I2C_ADDRESS (0x21 << 1)
 #define I2C_TIMEOUT 100
-
-#define OV7670_HREF_PORT  GPIOB
-#define OV7670_HREF_PIN   GPIO_PIN_4
-
-#define OV7670_PCLK_PORT  GPIOD
-#define OV7670_PCLK_PIN   GPIO_PIN_2
-
-#define OV7670_VSYNC_PORT GPIOA
-#define OV7670_VSYNC_PIN  GPIO_PIN_1
-
-// NOTE: ALL DATA PINS MUST BE ON THE SAME PORT ON PINS 0-7 FOR THE CODE TO WORK.
-#define OV7670_DATA_PORT  GPIOC
 
 // Assume QVGA output format for now
 #define OV7670_NUM_ROWS 120
@@ -354,6 +345,6 @@ static struct regval_list ov7670_qqvga_regs[] = {
 HAL_StatusTypeDef ov7670Init();
 uint8_t ov7670WriteReg(uint8_t reg, uint8_t data);
 uint8_t ov7670ReadReg(uint8_t reg, uint8_t* buf);
-void ov7670GetFrame(uint16_t frameBuf[OV7670_NUM_ROWS][OV7670_NUM_COLS]);
+HAL_StatusTypeDef ov7670GetFrame(uint16_t* frameBuf);
 
 #endif /* SRC_OV7670_H_ */

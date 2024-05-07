@@ -41,7 +41,7 @@ HAL_StatusTypeDef ov7670Init() {
     }
   }
 
-  // Configure output to be QQVGA (1/16th the size of VGA)
+  // Configure output to be QQVGA
   for (int i = 0; i < 0xff; i++) {
     // 0xff is the "end signal" of the array, as seen in the header file.
     if (ov7670_qqvga_regs[i].reg_num == 0xff) {
@@ -59,45 +59,17 @@ HAL_StatusTypeDef ov7670Init() {
 
 /**
  * Reads all pixel values into a given buffer.
+ * Note that we divide by 2 here to get the number of uint32_t's (since the actual output is uint16_t's).
  *
- * NOTE: The OV7670 data pins MUST be on the same STM32 port and numbered 0-7 for this to work.
- *
- * TODO: explain how this works in depth (if it even works)
+ * @returns: HAL status representing whether or not the DMA initialization attempt was successful.
  */
-void ov7670GetFrame(uint16_t frameBuf[OV7670_NUM_ROWS][OV7670_NUM_COLS]) {
-  // Wait for next pulse of VSYNC
-  while (!HAL_GPIO_ReadPin(OV7670_VSYNC_PORT, OV7670_VSYNC_PIN));
-  while (HAL_GPIO_ReadPin(OV7670_VSYNC_PORT, OV7670_VSYNC_PIN));
+HAL_StatusTypeDef ov7670GetFrame(uint16_t* frameBuf) {
+  HAL_StatusTypeDef status = HAL_DCMI_Start_DMA(OV7670_DCMI, DCMI_MODE_SNAPSHOT, (uint32_t)frameBuf, OV7670_NUM_ROWS*OV7670_NUM_COLS/2);
 
-  // Wait for first rising edge of HREF
-  while (!HAL_GPIO_ReadPin(OV7670_HREF_PORT, OV7670_HREF_PIN));
+  status |= HAL_DCMI_Suspend(OV7670_DCMI);
+  status |= HAL_DCMI_Stop(OV7670_DCMI);
 
-  uint16_t byteCounter = 0;
-
-  for (int row = 0; row < OV7670_NUM_ROWS; row++) {
-    while (HAL_GPIO_ReadPin(OV7670_HREF_PORT, OV7670_HREF_PIN)) {
-      // Wait for rising edge of PCLK; sample once high.
-      while (!HAL_GPIO_ReadPin(OV7670_PCLK_PORT, OV7670_PCLK_PIN));
-
-      // Read all data from pins
-      if (byteCounter % 2) {
-        // Second byte
-        frameBuf[row][byteCounter / 2] |= OV7670_DATA_PORT->IDR & 0xFF;
-      } else {
-        // First byte
-        frameBuf[row][byteCounter / 2] = (OV7670_DATA_PORT->IDR & 0xFF) << 8;
-      }
-
-      byteCounter++;
-      // Ensure col value is in bounds.
-      if (byteCounter >= OV7670_NUM_COLS) {
-        byteCounter = 0;
-      }
-
-      // Wait for falling edge of PCLK
-      while (HAL_GPIO_ReadPin(OV7670_PCLK_PORT, OV7670_PCLK_PIN));
-    }
-  }
+  return status;
 }
 
 /**
