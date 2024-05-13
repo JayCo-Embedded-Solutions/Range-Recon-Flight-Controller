@@ -14,9 +14,9 @@
 #include "stdio.h"
 #include "string.h"
 
-#define KP				0.1
-#define KI				0.01
-#define KD				0.000001
+#define RATE_KP				0.23
+#define RATE_KI				0
+#define RATE_KD				0
 
 #define RAD2DEG 		57.3
 #define USecs2Secs		1000000
@@ -38,7 +38,8 @@ extern uint16_t gyroLastUpdate;
 void initializeAccelFilters();
 void imuExtractAndFilter(float* accelerometerData, float* gyroscopeData);
 void updateCraftAngles(float* acceleromterData, float* gyroscopeData, float* aircraftAngles);
-void pidController(float* aircraftAngularRates, float* desiredAngularRates, int16_t* controlSignals);
+void rateController(float* aircraftAngularRates, float* desiredAngularRates, int16_t* controlSignals);
+void angleController(float* aircraftAngles, float* desiredAngles, int16_t* controlSignals);
 void actuateMotors(uint8_t* motorThrottle,uint8_t* rcThrottle, int16_t* controlSignals);
 
 #endif /* INC_FLIGHTCONTROLLER_H_ */

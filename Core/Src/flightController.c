@@ -69,7 +69,7 @@ void updateCraftAngles(float* accelerometerData, float* gyroscopeData, float* ai
 	gyroLastUpdate = __HAL_TIM_GET_COUNTER(&htim16);
 }
 
-void pidController(float* aircraftAngularRates, float* desiredAngularRates, int16_t* controlSignals) {
+void rateController(float* aircraftAngularRates, float* desiredAngularRates, int16_t* controlSignals) {
 	float pitchError, rollError, yawError;
 
 	char buf[1000];
@@ -86,9 +86,9 @@ void pidController(float* aircraftAngularRates, float* desiredAngularRates, int1
 
 	int16_t pitchAdjust, rollAdjust, yawAdjust;
 
-	pitchAdjust = (KP * pitchError) + (KI * integral[0]) / dt - (KD * pitchError * dt);
-	rollAdjust = (KP * rollError) + (KI * integral[1]) / dt - (KD * rollError * dt);
-	yawAdjust = (KP * yawError) + (KI * integral[2]) / dt - (KD * yawError * dt);
+	pitchAdjust = (RATE_KP * pitchError) + (RATE_KI * integral[0]) / dt - (RATE_KD * pitchError * dt);
+	rollAdjust = (RATE_KP * rollError) + (RATE_KI * integral[1]) / dt - (RATE_KD * rollError * dt);
+	yawAdjust = (RATE_KP * yawError) + (RATE_KI * integral[2]) / dt - (RATE_KD * yawError * dt);
 
 	controlSignals[0] = pitchAdjust;
 	controlSignals[1] = rollAdjust;
@@ -99,29 +99,60 @@ void pidController(float* aircraftAngularRates, float* desiredAngularRates, int1
 	pidLastUpdate = __HAL_TIM_GET_COUNTER(&htim16);
 }
 
+void angleController(float* aircraftAngles, float* desiredAngles, int16_t* controlSignals) {
+	float pitchError, rollError, yawError;
+
+	char buf[1000];
+
+	pitchError = aircraftAngles[0] - desiredAngles[0];
+	rollError = aircraftAngles[1] - desiredAngles[1];
+	yawError = aircraftAngles[2] - desiredAngles[2];
+
+	uint16_t dt = __HAL_TIM_GET_COUNTER(&htim16) - pidLastUpdate;
+
+	int16_t pitchAdjust, rollAdjust, yawAdjust;
+
+	pitchAdjust = (RATE_KP * pitchError) + (RATE_KI * integral[0]) / dt - (RATE_KD * pitchError * dt);
+	rollAdjust = (RATE_KP * rollError) + (RATE_KI * integral[1]) / dt - (RATE_KD * rollError * dt);
+	yawAdjust = (RATE_KP * yawError) + (RATE_KI * integral[2]) / dt - (RATE_KD * yawError * dt);
+
+	controlSignals[0] = pitchAdjust;
+	controlSignals[1] = rollAdjust;
+	controlSignals[2] = yawAdjust;
+
+//	sprintf(buf, "%0.1f, %0.1f, %0.1f \r\n",  pitchError, rollError, yawError);
+}
+
 void actuateMotors(uint8_t* motorThrottle,uint8_t* rcThrottle, int16_t* controlSignals) {
 	uint8_t adjustedSpeeds[4];
 
 	char buf[1000];
 
 	// assign motor speeds based on controller values
-	adjustedSpeeds[0] = rcThrottle[0] - controlSignals[0] + controlSignals[1] - controlSignals[2];
-	adjustedSpeeds[1] = rcThrottle[1] - controlSignals[0] - controlSignals[1] + controlSignals[2];
-	adjustedSpeeds[2] = rcThrottle[2] + controlSignals[0] + controlSignals[1] + controlSignals[2];
-	adjustedSpeeds[3] = rcThrottle[3] + controlSignals[0] - controlSignals[1] - controlSignals[2];
+//	adjustedSpeeds[0] = rcThrottle[0] - controlSignals[0] + controlSignals[1] - controlSignals[2];
+//	adjustedSpeeds[1] = rcThrottle[1] - controlSignals[0] - controlSignals[1] + controlSignals[2];
+//	adjustedSpeeds[2] = rcThrottle[2] + controlSignals[0] + controlSignals[1] + controlSignals[2];
+//	adjustedSpeeds[3] = rcThrottle[3] + controlSignals[0] - controlSignals[1] - controlSignals[2];
+	adjustedSpeeds[0] = rcThrottle[0] - controlSignals[0] + controlSignals[1] + controlSignals[2];
+	adjustedSpeeds[1] = rcThrottle[1] - controlSignals[0] - controlSignals[1] - controlSignals[2];
+	adjustedSpeeds[2] = rcThrottle[2] + controlSignals[0] + controlSignals[1] - controlSignals[2];
+	adjustedSpeeds[3] = rcThrottle[3] + controlSignals[0] - controlSignals[1] + controlSignals[2];
 
 	// limit motor speeds to between 50 and 70
 	for(uint8_t i = 0; i < 4; i++) {
 		if(adjustedSpeeds[i] > 80) {
-			adjustedSpeeds[i] = 70;
+			adjustedSpeeds[i] = 80;
 		}
 		else if(adjustedSpeeds[i] < 50) {
 			adjustedSpeeds[i] = 50;
 		}
 	}
 
-	motorThrottle[0] = adjustedSpeeds[0];
-	motorThrottle[1] = adjustedSpeeds[1];
-	motorThrottle[2] = adjustedSpeeds[2];
-	motorThrottle[3] = adjustedSpeeds[3];
+	sprintf(buf, "%hd, %hd, %hd, %hd \r\n",  adjustedSpeeds[0], adjustedSpeeds[1], adjustedSpeeds[2], adjustedSpeeds[3]);
+	HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
+
+	motorSetSpeed(frontRightMotor, adjustedSpeeds[0]);
+	motorSetSpeed(frontLeftMotor, adjustedSpeeds[1]);
+	motorSetSpeed(rearRightMotor, adjustedSpeeds[2]);
+	motorSetSpeed(rearLeftMotor, adjustedSpeeds[3]);
 }

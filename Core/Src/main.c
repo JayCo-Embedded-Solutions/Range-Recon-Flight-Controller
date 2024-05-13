@@ -146,39 +146,34 @@ int main(void)
 	uint32_t xVal, yVal, mappedTimerVal;
 	if(isDataAvailable(rxPipe)) {
 		nRF24Receive(rxData);
-	  	xVal = (rxData[0] << 24 | rxData[1] << 16 | rxData[2] << 8 | rxData[3]);
-	  	yVal = (rxData[4] << 24 | rxData[5] << 16 | rxData[6] << 8 | rxData[7]);
-	  	HAL_IWDG_Refresh(&hiwdg);
+		xVal = (rxData[0] << 24 | rxData[1] << 16 | rxData[2] << 8 | rxData[3]);
+		yVal = (rxData[4] << 24 | rxData[5] << 16 | rxData[6] << 8 | rxData[7]);
+		HAL_IWDG_Refresh(&hiwdg);
 	}
 
 	if(xVal > 2200) {
-	  	mappedTimerVal = (xVal - 2200)/100 + 60;
+		mappedTimerVal = (xVal - 2200)/100 + 50;
 	}
 	else {
 		mappedTimerVal = 50;
 	}
 
-  	rcThrottle[0] = mappedTimerVal;
-  	rcThrottle[1] = mappedTimerVal;
-  	rcThrottle[2] = mappedTimerVal;
-  	rcThrottle[3] = mappedTimerVal;
+	rcThrottle[0] = mappedTimerVal;
+	rcThrottle[1] = mappedTimerVal;
+	rcThrottle[2] = mappedTimerVal;
+	rcThrottle[3] = mappedTimerVal;
 
 	char buf[1000];
 
 	updateCraftAngles(accelData, gyroData, craftAngles);
-	pidController(gyroData, desAngles, ctrlSignals);
+	angleController(craftAngles, desAngles, ctrlSignals);
 	actuateMotors(motorThrottle, rcThrottle, ctrlSignals);
 
-	  //sprintf(buf, "%0.4f, %0.4f, %0.4f \r\n", accelData[0], accelData[1], accelData[2]);
-//	  sprintf(buf, "%0.1f, %0.1f, %0.1f \r\n", gyroData[0], gyroData[1], gyroData[2]);
-//	  sprintf(buf, "%0.1f, %0.1f, %0.1f \r\n",  craftAngles[0], craftAngles[1], craftAngles[2]);
-//	  sprintf(buf, "%0.1f, %0.1f \r\n",  craftAngles[0], craftAngles[1]);
-//	sprintf(buf, " FR: %hd, FL: %hd, RR: %hd, RL: %hd \r\n",  motorThrottle[0], motorThrottle[1], motorThrottle[2], motorThrottle[3]);
-
-	motorSetSpeed(frontRightMotor, motorThrottle[0]);
-	motorSetSpeed(frontLeftMotor, motorThrottle[1]);
-	motorSetSpeed(rearRightMotor, motorThrottle[2]);
-	motorSetSpeed(rearLeftMotor, motorThrottle[3]);
+		  //sprintf(buf, "%0.4f, %0.4f, %0.4f \r\n", accelData[0], accelData[1], accelData[2]);
+	//	  sprintf(buf, "%0.1f, %0.1f, %0.1f \r\n", gyroData[0], gyroData[1], gyroData[2]);
+	//	  sprintf(buf, "%0.1f, %0.1f, %0.1f \r\n",  craftAngles[0], craftAngles[1], craftAngles[2]);
+	//	  sprintf(buf, "%0.1f, %0.1f \r\n",  craftAngles[0], craftAngles[1]);
+	//	sprintf(buf, " FR: %hd, FL: %hd, RR: %hd, RL: %hd \r\n",  motorThrottle[0], motorThrottle[1], motorThrottle[2], motorThrottle[3]);
 
 	if(craftAngles[0] > 30 || craftAngles[0] < -30) {
 		setAllMotors(50);
@@ -189,9 +184,6 @@ int main(void)
 		while(1) {}
 	}
 
-//	  sprintf(buf, "%hd \r\n", timVal);
-	  // change huartX to your initialized HAL UART peripheral
-//	HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 	HAL_Delay(10);
   }
   /* USER CODE END 3 */
@@ -263,7 +255,7 @@ static void MX_IWDG_Init(void)
 
   /* USER CODE END IWDG_Init 1 */
   hiwdg.Instance = IWDG;
-  hiwdg.Init.Prescaler = IWDG_PRESCALER_16;
+  hiwdg.Init.Prescaler = IWDG_PRESCALER_8;
   hiwdg.Init.Window = 4095;
   hiwdg.Init.Reload = 100;
   if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
