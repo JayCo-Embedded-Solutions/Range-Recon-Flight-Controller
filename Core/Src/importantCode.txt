@@ -1,0 +1,33 @@
+///////////////////////////////////// controlling motors with NRF24 //////////////////////////////////////////////////////////////////////////////////
+
+//  uint8_t rxAddress[5] = {0xEE, 0xDD, 0xCC, 0xBB, 0xAA};
+//  uint8_t channelNum = 10;
+//  uint8_t rxPipe = 1;
+//  uint8_t rxData[8];
+//
+//  nRF24Init();
+//  nRF24RxMode(rxAddress, channelNum);
+
+//  int map(uint32_t x, uint32_t in_min, uint32_t in_max, uint32_t out_min, uint32_t out_max) {
+//	  returnVal = (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+//    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+//  }
+
+//	  uint32_t xVal, yVal;
+//	  if(isDataAvailable(rxPipe)) {
+//		  nRF24Receive(rxData);
+//		  xVal = (rxData[0] << 24 | rxData[1] << 16 | rxData[2] << 8 | rxData[3]);
+//		  yVal = (rxData[4] << 24 | rxData[5] << 16 | rxData[6] << 8 | rxData[7]);
+//		  HAL_IWDG_Refresh(&hiwdg);
+//	  }
+//
+//
+//	  if(xVal > 2200) {
+//		  uint8_t mappedTimerVal = (xVal - 2200)/100 + 60;
+//		  setAllMotors(mappedTimerVal);
+//	  }
+//	  else {
+//		  setAllMotors(50);
+//	  }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
