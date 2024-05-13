@@ -85,6 +85,8 @@ void Error_Handler(void);
 #define UART4_TX_GPIO_Port GPIOC
 #define UART4_RX_Pin GPIO_PIN_11
 #define UART4_RX_GPIO_Port GPIOC
+#define GPIO_OUTPUTC12_Pin GPIO_PIN_12
+#define GPIO_OUTPUTC12_GPIO_Port GPIOC
 #define GPIO_OUTPUTB6_Pin GPIO_PIN_6
 #define GPIO_OUTPUTB6_GPIO_Port GPIOB
 

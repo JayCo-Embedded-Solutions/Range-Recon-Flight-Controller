@@ -8,6 +8,8 @@
 #ifndef INC_MPU6500_H_
 #define INC_MPU6500_H_
 
+#include "stdint.h"
+
 extern float gyroXOffset;
 extern float gyroYOffset;
 extern float gyroZOffset;

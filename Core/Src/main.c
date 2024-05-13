@@ -26,6 +26,7 @@
 #include "firFilter.h"
 #include "stdio.h"
 #include "string.h"
+#include "flightController.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,10 +44,13 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+IWDG_HandleTypeDef hiwdg;
+
 SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi2;
 
 TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim16;
 
 UART_HandleTypeDef huart4;
 
@@ -61,6 +65,8 @@ static void MX_SPI1_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_UART4_Init(void);
 static void MX_SPI2_Init(void);
+static void MX_TIM16_Init(void);
+static void MX_IWDG_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -103,19 +109,29 @@ int main(void)
   MX_TIM1_Init();
   MX_UART4_Init();
   MX_SPI2_Init();
+  MX_TIM16_Init();
   /* USER CODE BEGIN 2 */
+  HAL_TIM_Base_Start(&htim16);
+
+  uint8_t rxAddress[5] = {0xEE, 0xDD, 0xCC, 0xBB, 0xAA};
+  uint8_t channelNum = 10;
+  uint8_t rxPipe = 1;
+  uint8_t rxData[8];
+
+  nRF24Init();
+  nRF24RxMode(rxAddress, channelNum);
+
+  float accelData[3], gyroData[3];
+  float craftAngles[3] = {0, 0, 0};
+  float desAngles[3] = {0, 0, 0};
+  int16_t ctrlSignals[3] = {0, 0, 0};
+  uint8_t rcThrottle[4];
+  uint8_t motorThrottle[4];
 
   mpu6500Init();
+  initializeAccelFilters();
   initializeMotors();
-
-  firFilter accelXDataLPF;
-  firFilterInit(&accelXDataLPF);
-
-  firFilter accelYDataLPF;
-  firFilterInit(&accelYDataLPF);
-
-  firFilter accelZDataLPF;
-  firFilterInit(&accelZDataLPF);
+  MX_IWDG_Init();
 
   /* USER CODE END 2 */
 
@@ -127,25 +143,56 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	  char buf[1000];
+	uint32_t xVal, yVal, mappedTimerVal;
+	if(isDataAvailable(rxPipe)) {
+		nRF24Receive(rxData);
+	  	xVal = (rxData[0] << 24 | rxData[1] << 16 | rxData[2] << 8 | rxData[3]);
+	  	yVal = (rxData[4] << 24 | rxData[5] << 16 | rxData[6] << 8 | rxData[7]);
+	  	HAL_IWDG_Refresh(&hiwdg);
+	}
 
-	  float accelDataRaw[3];
-	  getAccelData(accelDataRaw);
-	  float accelFilteredX = firFilterUpdate(&accelXDataLPF, accelDataRaw[0]);
-	  float accelFilteredY = firFilterUpdate(&accelYDataLPF, accelDataRaw[1]);
-	  float accelFilteredZ = firFilterUpdate(&accelZDataLPF, accelDataRaw[2]);
+	if(xVal > 2200) {
+	  	mappedTimerVal = (xVal - 2200)/100 + 60;
+	}
+	else {
+		mappedTimerVal = 50;
+	}
 
-	  float gyroData[3];
-	  getGyroData(gyroData);
+  	rcThrottle[0] = mappedTimerVal;
+  	rcThrottle[1] = mappedTimerVal;
+  	rcThrottle[2] = mappedTimerVal;
+  	rcThrottle[3] = mappedTimerVal;
 
-//	  sprintf(buf, "%0.4f, %0.4f, %0.4f \r\n", accelFilteredX - accelXOffset, accelFilteredY - accelYOffset, accelFilteredZ - accelZOffset);
-	  sprintf(buf, "%0.4f, %0.4f, %0.4f \r\n", gyroData[0] - gyroXOffset, gyroData[1] - gyroYOffset, gyroData[2] - gyroZOffset);
-	  //    sprintf(&(buf[strlen(buf)]), "Temperature Data: %hd\r\n\r\n", tempData);
+	char buf[1000];
 
+	updateCraftAngles(accelData, gyroData, craftAngles);
+	pidController(gyroData, desAngles, ctrlSignals);
+	actuateMotors(motorThrottle, rcThrottle, ctrlSignals);
 
+	  //sprintf(buf, "%0.4f, %0.4f, %0.4f \r\n", accelData[0], accelData[1], accelData[2]);
+//	  sprintf(buf, "%0.1f, %0.1f, %0.1f \r\n", gyroData[0], gyroData[1], gyroData[2]);
+//	  sprintf(buf, "%0.1f, %0.1f, %0.1f \r\n",  craftAngles[0], craftAngles[1], craftAngles[2]);
+//	  sprintf(buf, "%0.1f, %0.1f \r\n",  craftAngles[0], craftAngles[1]);
+//	sprintf(buf, " FR: %hd, FL: %hd, RR: %hd, RL: %hd \r\n",  motorThrottle[0], motorThrottle[1], motorThrottle[2], motorThrottle[3]);
+
+	motorSetSpeed(frontRightMotor, motorThrottle[0]);
+	motorSetSpeed(frontLeftMotor, motorThrottle[1]);
+	motorSetSpeed(rearRightMotor, motorThrottle[2]);
+	motorSetSpeed(rearLeftMotor, motorThrottle[3]);
+
+	if(craftAngles[0] > 30 || craftAngles[0] < -30) {
+		setAllMotors(50);
+		while(1) {}
+	}
+	if(craftAngles[1] > 30 || craftAngles[1] < -30) {
+		setAllMotors(50);
+		while(1) {}
+	}
+
+//	  sprintf(buf, "%hd \r\n", timVal);
 	  // change huartX to your initialized HAL UART peripheral
-	  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
-	  HAL_Delay(10);
+//	HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
+	HAL_Delay(10);
   }
   /* USER CODE END 3 */
 }
@@ -163,9 +210,10 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
   RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
@@ -188,13 +236,44 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_UART4|RCC_PERIPHCLK_TIM1;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_UART4|RCC_PERIPHCLK_TIM1
+                              |RCC_PERIPHCLK_TIM16;
   PeriphClkInit.Uart4ClockSelection = RCC_UART4CLKSOURCE_PCLK1;
   PeriphClkInit.Tim1ClockSelection = RCC_TIM1CLK_HCLK;
+  PeriphClkInit.Tim16ClockSelection = RCC_TIM16CLK_HCLK;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief IWDG Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_IWDG_Init(void)
+{
+
+  /* USER CODE BEGIN IWDG_Init 0 */
+
+  /* USER CODE END IWDG_Init 0 */
+
+  /* USER CODE BEGIN IWDG_Init 1 */
+
+  /* USER CODE END IWDG_Init 1 */
+  hiwdg.Instance = IWDG;
+  hiwdg.Init.Prescaler = IWDG_PRESCALER_16;
+  hiwdg.Init.Window = 4095;
+  hiwdg.Init.Reload = 100;
+  if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN IWDG_Init 2 */
+
+  /* USER CODE END IWDG_Init 2 */
+
 }
 
 /**
@@ -360,6 +439,38 @@ static void MX_TIM1_Init(void)
 }
 
 /**
+  * @brief TIM16 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM16_Init(void)
+{
+
+  /* USER CODE BEGIN TIM16_Init 0 */
+
+  /* USER CODE END TIM16_Init 0 */
+
+  /* USER CODE BEGIN TIM16_Init 1 */
+
+  /* USER CODE END TIM16_Init 1 */
+  htim16.Instance = TIM16;
+  htim16.Init.Prescaler = 72 - 1;
+  htim16.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim16.Init.Period = 65535;
+  htim16.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim16.Init.RepetitionCounter = 0;
+  htim16.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim16) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM16_Init 2 */
+
+  /* USER CODE END TIM16_Init 2 */
+
+}
+
+/**
   * @brief UART4 Initialization Function
   * @param None
   * @retval None
@@ -415,7 +526,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12|GPIO_OUTPUTB6_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIO_OUTPUT_GPIO_Port, GPIO_OUTPUT_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, GPIO_OUTPUT_Pin|GPIO_OUTPUTC12_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PB12 GPIO_OUTPUTB6_Pin */
   GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_OUTPUTB6_Pin;
@@ -424,12 +535,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : GPIO_OUTPUT_Pin */
-  GPIO_InitStruct.Pin = GPIO_OUTPUT_Pin;
+  /*Configure GPIO pins : GPIO_OUTPUT_Pin GPIO_OUTPUTC12_Pin */
+  GPIO_InitStruct.Pin = GPIO_OUTPUT_Pin|GPIO_OUTPUTC12_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIO_OUTPUT_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */

@@ -11,7 +11,7 @@
 #define PULSE_MIN				50
 #define PULSE_MAX				100
 
-enum {
+extern enum {
 	frontRightMotor,
 	frontLeftMotor,
 	rearRightMotor,

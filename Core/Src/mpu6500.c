@@ -189,15 +189,15 @@ void getAccelData(float* data) {
 void getGyroData(float* data) {
   // Fill X data
   int16_t rawData = mpu6500ReadReg(MPU6500_GYRO_XOUT_H) << 8 | mpu6500ReadReg(MPU6500_GYRO_XOUT_L);
-  data[0] = rawData / 65.5f;
+  data[0] = rawData / 131.0f;
 
   // Fill Y data
   rawData = mpu6500ReadReg(MPU6500_GYRO_YOUT_H) << 8 | mpu6500ReadReg(MPU6500_GYRO_YOUT_L);
-  data[1] = rawData / 65.5f;
+  data[1] = rawData / 131.0f;
 
   // Fill Z data
   rawData = mpu6500ReadReg(MPU6500_GYRO_ZOUT_H) << 8 | mpu6500ReadReg(MPU6500_GYRO_ZOUT_L);
-  data[2] = rawData / 65.5f;
+  data[2] = rawData / 131.0f;
 }
 
 /**
