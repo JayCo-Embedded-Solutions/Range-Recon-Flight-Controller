@@ -6,7 +6,6 @@
  */
 
 #include "firFilter.h"
-#include "emaFilter.h"
 
 static float firImpulseResponse[FIR_FILTER_LENGTH] = { 0.01919f, 0.02748f, 0.04323f, 0.06096f, 0.07885f, 0.09485f,
 													   0.10689f, 0.11336f, 0.11336f, 0.10689f, 0.09485f, 0.07885f,

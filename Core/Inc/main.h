@@ -27,7 +27,7 @@ extern "C" {
 #endif
 
 /* Includes ------------------------------------------------------------------*/
-#include "stm32f3xx_hal.h"
+#include "stm32f4xx_hal.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -59,36 +59,14 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define SPI2_SCK_Pin GPIO_PIN_1
-#define SPI2_SCK_GPIO_Port GPIOF
-#define TIM1_CH1_Pin GPIO_PIN_0
-#define TIM1_CH1_GPIO_Port GPIOC
-#define TIM1_CH2_Pin GPIO_PIN_1
-#define TIM1_CH2_GPIO_Port GPIOC
-#define TIM1_CH3_Pin GPIO_PIN_2
-#define TIM1_CH3_GPIO_Port GPIOC
-#define TIM1_CH4_Pin GPIO_PIN_3
-#define TIM1_CH4_GPIO_Port GPIOC
-#define SPI1_SCK_Pin GPIO_PIN_5
-#define SPI1_SCK_GPIO_Port GPIOA
-#define SPI1_MISO_Pin GPIO_PIN_6
-#define SPI1_MISO_GPIO_Port GPIOA
-#define SPI1_MOSI_Pin GPIO_PIN_7
-#define SPI1_MOSI_GPIO_Port GPIOA
-#define SPI2_MISO_Pin GPIO_PIN_14
-#define SPI2_MISO_GPIO_Port GPIOB
-#define SPI2_MOSI_Pin GPIO_PIN_15
-#define SPI2_MOSI_GPIO_Port GPIOB
-#define GPIO_OUTPUT_Pin GPIO_PIN_7
-#define GPIO_OUTPUT_GPIO_Port GPIOC
-#define UART4_TX_Pin GPIO_PIN_10
-#define UART4_TX_GPIO_Port GPIOC
-#define UART4_RX_Pin GPIO_PIN_11
-#define UART4_RX_GPIO_Port GPIOC
-#define GPIO_OUTPUTC12_Pin GPIO_PIN_12
-#define GPIO_OUTPUTC12_GPIO_Port GPIOC
-#define GPIO_OUTPUTB6_Pin GPIO_PIN_6
-#define GPIO_OUTPUTB6_GPIO_Port GPIOB
+#define MPU6500_NCS_Pin GPIO_PIN_12
+#define MPU6500_NCS_GPIO_Port GPIOB
+#define NRF24_CE_Pin GPIO_PIN_7
+#define NRF24_CE_GPIO_Port GPIOC
+#define DBG_LED_Pin GPIO_PIN_2
+#define DBG_LED_GPIO_Port GPIOD
+#define NRF24_CS_Pin GPIO_PIN_6
+#define NRF24_CS_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

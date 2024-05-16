@@ -149,4 +149,3 @@ void calibrateGyro();
 void calibrateAccel();
 
 #endif /* INC_MPU6500_H_ */
-

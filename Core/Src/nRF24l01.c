@@ -4,7 +4,7 @@
  *  Created on: Apr 9, 2024
  *      Author: Cody
  */
-#include "stm32f3xx_hal.h"
+#include "stm32f4xx_hal.h"
 #include "nRF24l01.h"
 #include <stdbool.h>
 
@@ -334,3 +334,4 @@ void nRF24Receive(uint8_t* data) {
   // flush the receive data pipe
   nRF24SendCmd(FLUSH_RX);
 }
+

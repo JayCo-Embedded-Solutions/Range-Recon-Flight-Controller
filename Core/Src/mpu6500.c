@@ -17,7 +17,7 @@
  * - read temperature sensor (note: this might just be the temp of the mpu6500 die?)
  */
 
-#include "stm32f3xx_hal.h"
+#include "stm32f4xx_hal.h"
 #include "mpu6500.h"
 
 float gyroXOffset = 0, gyroYOffset = 0, gyroZOffset = 0;

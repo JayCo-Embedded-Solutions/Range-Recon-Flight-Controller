@@ -5,13 +5,12 @@
  *      Author: jerem
  */
 
-#include "stm32f3xx_hal.h"
+#include "stm32f4xx_hal.h"
 #include "motorControl.h"
 #include "stdio.h"
 #include "string.h"
 
 extern TIM_HandleTypeDef htim1;
-extern UART_HandleTypeDef huart4;
 
 void motorSetSpeed(uint8_t selectedMotor, uint8_t speed) {
 	switch(selectedMotor) {
@@ -43,7 +42,7 @@ void initializeMotors(void) {
 	motorSetSpeed(rearRightMotor, PULSE_MIN);
 	motorSetSpeed(rearLeftMotor, PULSE_MIN);
 
-	HAL_Delay(1000);
+	HAL_Delay(4000);
 }
 
 void setAllMotors(uint8_t speed) {
@@ -86,30 +85,18 @@ void testIndividualAddress(void) {
 	motorSetSpeed(rearLeftMotor, PULSE_MIN);
 	HAL_Delay(5000);
 
-	char myBuf[100];
-
 	motorSetSpeed(frontRightMotor,60);
-	sprintf(myBuf, "front right set to 60 \r\n");
-	HAL_UART_Transmit(&huart4, (uint8_t*)myBuf, strlen(myBuf), 100);
 	HAL_Delay(3000);
 
 	motorSetSpeed(frontLeftMotor,60);
-	sprintf(myBuf, "front left set to 60 \r\n");
-	HAL_UART_Transmit(&huart4, (uint8_t*)myBuf, strlen(myBuf), 100);
 	HAL_Delay(3000);
 
 	motorSetSpeed(rearRightMotor,60);
-	sprintf(myBuf, "rear right set to 60 \r\n");
-	HAL_UART_Transmit(&huart4, (uint8_t*)myBuf, strlen(myBuf), 100);
 	HAL_Delay(3000);
 
 	motorSetSpeed(rearLeftMotor,60);
-	sprintf(myBuf, "rear left set to 60 \r\n");
-	HAL_UART_Transmit(&huart4, (uint8_t*)myBuf, strlen(myBuf), 100);
 	HAL_Delay(3000);
 
 	setAllMotors(PULSE_MIN);
-	sprintf(myBuf, "all motors off \r\n");
-	HAL_UART_Transmit(&huart4, (uint8_t*)myBuf, strlen(myBuf), 100);
 	HAL_Delay(10000);
 }
