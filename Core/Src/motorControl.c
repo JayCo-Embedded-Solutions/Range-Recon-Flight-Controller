@@ -12,6 +12,35 @@
 
 extern TIM_HandleTypeDef htim1;
 
+/**
+ * @brief: initializes the timer channels for the drone motors
+ *
+ * @returns: none
+ */
+void initializeMotors() {
+	// begin PWM generation on all motor channels
+	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+
+	// initialize all motors to zero speed so the ESCs can set the reference
+	motorSetSpeed(frontRightMotor, PULSE_MIN);
+	motorSetSpeed(frontLeftMotor, PULSE_MIN);
+	motorSetSpeed(rearRightMotor, PULSE_MIN);
+	motorSetSpeed(rearLeftMotor, PULSE_MIN);
+
+	HAL_Delay(4000);
+}
+
+/**
+ * @brief: sets the speed of an individual motor
+ *
+ * @param selectedMotor: the motor of which to set the speed
+ * @param speed: the speed at which to set the selected motor
+ *
+ * @returns: none
+ */
 void motorSetSpeed(uint8_t selectedMotor, uint8_t speed) {
 	switch(selectedMotor) {
 		case frontRightMotor:
@@ -29,22 +58,13 @@ void motorSetSpeed(uint8_t selectedMotor, uint8_t speed) {
 	}
 }
 
-void initializeMotors(void) {
-	// begin PWM generation on all motor channels
-	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
-	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
-	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
-	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
-
-	// initialize all motors to zero speed so the ESCs can set the reference
-	motorSetSpeed(frontRightMotor, PULSE_MIN);
-	motorSetSpeed(frontLeftMotor, PULSE_MIN);
-	motorSetSpeed(rearRightMotor, PULSE_MIN);
-	motorSetSpeed(rearLeftMotor, PULSE_MIN);
-
-	HAL_Delay(4000);
-}
-
+/**
+ * @brief: sets all motors to the same speed
+ *
+ * @param speed: the speed at which to set all of the motors
+ *
+ * @returns: none
+ */
 void setAllMotors(uint8_t speed) {
 	if(speed < PULSE_MIN || speed > PULSE_MAX) {}
 	else {
@@ -55,7 +75,12 @@ void setAllMotors(uint8_t speed) {
 	}
 }
 
-void testIncrementSpeed(void) {
+/**
+ * @brief: tests incrementing the speed of all motors at the same time
+ *
+ * @returns: none
+ */
+void testIncrementSpeed() {
 	setAllMotors(50);
 	HAL_Delay(4000);
 	setAllMotors(60);
@@ -66,7 +91,12 @@ void testIncrementSpeed(void) {
 	HAL_Delay(4000);
 }
 
-void testIndividualAddress(void) {
+/**
+ * @brief: tests the individual addressibility of the motors, start from the front right motor and ending with rear left
+ *
+ * @returns: none
+ */
+void testIndividualAddress() {
 	motorSetSpeed(frontRightMotor, 55);
 	HAL_Delay(2000);
 

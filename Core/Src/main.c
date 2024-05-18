@@ -148,7 +148,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	uint32_t xVal = 50, mappedTimerVal;
+	uint32_t xVal = 50, yVal, mappedTimerVal;
 	if(isDataAvailable(rxPipe)) {
 		nRF24Receive(rxData);
 		xVal = (rxData[0] << 24 | rxData[1] << 16 | rxData[2] << 8 | rxData[3]);
@@ -183,8 +183,6 @@ int main(void)
 		setAllMotors(50);
 		while(1) {}
 	}
-
-	HAL_Delay(10);
 
   }
 

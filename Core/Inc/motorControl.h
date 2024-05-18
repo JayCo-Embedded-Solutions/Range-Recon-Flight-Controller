@@ -19,9 +19,9 @@ extern enum {
 } motor;
 
 void motorSetSpeed(uint8_t selectedMotor, uint8_t speed);
-void initializeMotors(void);
+void initializeMotors();
 void setAllMotors(uint8_t speed);
-void testIncrementSpeed(void);
-void testIndividualAddress(void);
+void testIncrementSpeed();
+void testIndividualAddress();
 
 #endif /* INC_MOTORCONTROL_H_ */
