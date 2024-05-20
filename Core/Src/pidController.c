@@ -27,9 +27,12 @@ void pidControllerInit(pidController* controller, float setKP, float setKI, floa
 	controller->KD = setKD;
 
 	// initialize all other values to 0.0f
+	controller->proportional = 0.0f;
+	controller->integral = 0.0f;
+	controller->derivative = 0.0f;
+
 	controller->currentError = 0.0f;
 	controller->prevError = 0.0f;
-	controller->totalError = 0.0f;
 	controller->output = 0.0f;
 
 	controller->dt = 0.0f;
@@ -48,17 +51,18 @@ void pidControllerInit(pidController* controller, float setKP, float setKI, floa
  * @returns: controller output signal
  */
 float pidUpdateOutput(pidController* controller, float inputVal, float desiredVal) {
-	// calculate current error and add to the total error
+	// calculate current error
 	controller->currentError = inputVal - desiredVal;
-	controller->totalError += controller->currentError;
 
 	// determine change in time since last sample
-	controller->dt = (__HAL_TIM_GET_COUNTER(&htim14) - controller->lastUpdated) / USecs2Secs;
+	controller->dt = (float)(__HAL_TIM_GET_COUNTER(&htim14) - controller->lastUpdated) / USecs2Secs;
 
 	// calculate output value based on the gains and error
-	controller->output = (controller->KP * controller->currentError) +
-						 (controller->KI * controller->totalError * controller->dt) +
-						 (controller->KD * (controller->currentError - controller->prevError) / controller->dt);
+	controller->proportional = controller->KP * controller->currentError;
+	controller->integral += controller->KI * controller->currentError * controller->dt;
+	controller->derivative = controller->KD * ((controller->currentError - controller->prevError) / controller->dt);
+
+	controller->output = controller->proportional + controller->integral + controller->derivative;
 
 	// store current error in previous error and update sample time
 	controller->prevError = controller->currentError;

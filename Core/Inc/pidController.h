@@ -18,9 +18,12 @@ typedef struct {
   float KI;
   float KD;
 
+  float proportional;
+  float integral;
+  float derivative;
+
   float currentError;
   float prevError;
-  float totalError;
   float output;
 
   float dt;

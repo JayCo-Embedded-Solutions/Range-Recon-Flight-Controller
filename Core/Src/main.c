@@ -109,7 +109,6 @@ int main(void)
   MX_UART4_Init();
   MX_SPI2_Init();
   MX_TIM14_Init();
-//  MX_IWDG_Init();
   /* USER CODE BEGIN 2 */
 
   HAL_TIM_Base_Start(&htim14);
@@ -123,18 +122,16 @@ int main(void)
   nRF24RxMode(rxAddress, channelNum);
 
   float accelData[3], gyroData[3];
-  float craftAngles[3] = {0, 0, 0};
-  float desAngles[3] = {0, 0, 0};
+  float craftAngles[2] = {0, 0};
+  float desAngles[2] = {0, 0};
   float desAngleRates[3] = {0, 0, 0};
   int16_t ctrlSignals[3] = {0, 0, 0};
-  uint8_t rcThrottle[4] = {50, 50, 50, 50};
-  uint8_t motorThrottle[4];
+  uint8_t RCThrottle = 50;
+  uint8_t motorThrottle[4] = {50, 50, 50, 50};
 
   mpu6500Init();
   flightControllerInit();
   initializeMotors();
-
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_2, GPIO_PIN_RESET);
 
   MX_IWDG_Init();
 
@@ -148,41 +145,39 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	uint32_t xVal = 50, yVal, mappedTimerVal;
+	uint32_t xVal, yVal, mappedTimerVal;
 	if(isDataAvailable(rxPipe)) {
 		nRF24Receive(rxData);
 		xVal = (rxData[0] << 24 | rxData[1] << 16 | rxData[2] << 8 | rxData[3]);
 		yVal = (rxData[4] << 24 | rxData[5] << 16 | rxData[6] << 8 | rxData[7]);
 		HAL_IWDG_Refresh(&hiwdg);
-	}
-
+	} else { continue; }
+//
 	mappedTimerVal = mapPWM(xVal);
 
-	rcThrottle[0] = mappedTimerVal;
-	rcThrottle[1] = mappedTimerVal;
-	rcThrottle[2] = mappedTimerVal;
-	rcThrottle[3] = mappedTimerVal;
+	RCThrottle = mappedTimerVal;
 
 	updateCraftAngles(accelData, gyroData, craftAngles);
-	rateController(gyroData, desAngleRates, ctrlSignals);
-	actuateMotors(motorThrottle, rcThrottle, ctrlSignals);
+	angleController(craftAngles, desAngles, gyroData, desAngleRates, ctrlSignals);
+	actuateMotors(motorThrottle, RCThrottle, ctrlSignals);
 
-	char buf[1000];
+//	char buf[1000];
+//	sprintf(buf, " FR: %hu, FL: %hu, RR: %hu, RL: %hu \r\n",  motorThrottle[0], motorThrottle[1], motorThrottle[2], motorThrottle[3]);
+//	HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
 //	sprintf(buf, "%0.4f, %0.4f, %0.4f \r\n", accelData[0], accelData[1], accelData[2]);
 //	sprintf(buf, "%0.1f, %0.1f, %0.1f \r\n", gyroData[0], gyroData[1], gyroData[2]);
 //	sprintf(buf, "%0.1f, %0.1f, %0.1f \r\n",  craftAngles[0], craftAngles[1], craftAngles[2]);
 //	sprintf(buf, "%0.1f, %0.1f \r\n",  craftAngles[0], craftAngles[1]);
-//	sprintf(buf, " FR: %hd, FL: %hd, RR: %hd, RL: %hd \r\n",  motorThrottle[0], motorThrottle[1], motorThrottle[2], motorThrottle[3]);
 
-	if(craftAngles[0] > 30 || craftAngles[0] < -30) {
-		setAllMotors(50);
-		while(1) {}
-	}
-	if(craftAngles[1] > 30 || craftAngles[1] < -30) {
-		setAllMotors(50);
-		while(1) {}
-	}
+//	if(craftAngles[0] > 30 || craftAngles[0] < -30) {
+//		setAllMotors(50);
+//		while(1) {}
+//	}
+//	if(craftAngles[1] > 30 || craftAngles[1] < -30) {
+//		setAllMotors(50);
+//		while(1) {}
+//	}
 
   }
 

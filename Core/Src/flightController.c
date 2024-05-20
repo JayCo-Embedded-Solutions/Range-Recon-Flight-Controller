@@ -18,6 +18,9 @@ pidController rateModePitchController;
 pidController rateModeRollController;
 pidController rateModeYawController;
 
+pidController angleModePitchController;
+pidController angleModeRollController;
+
 uint16_t gyroLastUpdate;
 
 /**
@@ -38,6 +41,10 @@ void flightControllerInit() {
 	pidControllerInit(&rateModePitchController, RATE_PITCH_KP, RATE_PITCH_KI, RATE_PITCH_KD);
 	pidControllerInit(&rateModeRollController, RATE_ROLL_KP, RATE_ROLL_KI, RATE_ROLL_KD);
 	pidControllerInit(&rateModeYawController, RATE_YAW_KP, RATE_YAW_KI, RATE_YAW_KD);
+
+	// initialize PID controllers for the angle mode controller
+	pidControllerInit(&angleModePitchController, ANGLE_PITCH_KP, ANGLE_PITCH_KI, ANGLE_PITCH_KD);
+	pidControllerInit(&angleModeRollController, ANGLE_ROLL_KP, ANGLE_ROLL_KI, ANGLE_ROLL_KD);
 }
 
 /**
@@ -80,7 +87,7 @@ void updateCraftAngles(float* accelerometerData, float* gyroscopeData, float* ai
 	// extract filtered IMU data
 	imuExtractAndFilter(accelerometerData, gyroscopeData);
 
-	float gyroAngles[3];
+	float gyroAngles[2];
 	float accelAngles[2];
 
 	// determine change in time since last sample
@@ -89,7 +96,6 @@ void updateCraftAngles(float* accelerometerData, float* gyroscopeData, float* ai
 	// determine gyroscope angles via gyroscope data integration
 	gyroAngles[0] = aircraftAngles[0] + (gyroscopeData[0] * dt) / USecs2Secs;
 	gyroAngles[1] = aircraftAngles[1] + (gyroscopeData[1] * dt) / USecs2Secs;
-	gyroAngles[2] = aircraftAngles[2] + (gyroscopeData[2] * dt) / USecs2Secs;
 
 	// determine accelerometer angles using Euler equations
 	accelAngles[0] = atan2(accelerometerData[1], accelerometerData[2]) * RAD2DEG;
@@ -98,7 +104,6 @@ void updateCraftAngles(float* accelerometerData, float* gyroscopeData, float* ai
 	// fuse gyroscope and accelerometer data using a complementary filter
 	aircraftAngles[0] = 0.98f * gyroAngles[0] + 0.02f * accelAngles[0];
 	aircraftAngles[1] = 0.98f * gyroAngles[1] + 0.02f * accelAngles[1];
-	aircraftAngles[2] = gyroAngles[2];
 
 	// update gyro sample time
 	gyroLastUpdate = __HAL_TIM_GET_COUNTER(&htim14);
@@ -130,33 +135,14 @@ void rateController(float* aircraftAngularRates, float* desiredAngularRates, int
  *
  * @returns: controller output signal
  */
-//void angleController(float* aircraftAngles, float* desiredAngles, int16_t* controlSignals) {
-//	float pitchError, rollError, yawError;
-//
-//	char buf[1000];
-//
-//	pitchError = aircraftAngles[0] - desiredAngles[0];
-//	rollError = aircraftAngles[1] - desiredAngles[1];
-//	yawError = aircraftAngles[2] - desiredAngles[2];
-//
-//	uint16_t dt = __HAL_TIM_GET_COUNTER(&htim14) - pidLastUpdate;
-//
-//	int16_t pitchAdjust, rollAdjust, yawAdjust;
-//
-//	pitchAdjust = (RATE_KP * pitchError) + (RATE_KI * integral[0]) / dt - (RATE_KD * pitchError * dt);
-//	rollAdjust = (RATE_KP * rollError) + (RATE_KI * integral[1]) / dt - (RATE_KD * rollError * dt);
-//	yawAdjust = (RATE_KP * yawError) + (RATE_KI * integral[2]) / dt - (RATE_KD * yawError * dt);
-//
-//	controlSignals[0] = pitchAdjust;
-//	controlSignals[1] = rollAdjust;
-//	controlSignals[2] = yawAdjust;
-//
-////	sprintf(buf, "%hd, %hd, %hd \r\n",  controlSignals[0], controlSignals[1], controlSignals[2]);
-////	HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
-////	HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
-//
-////	pidLastUpdate = __HAL_TIM_GET_COUNTER(&htim13);
-//}
+void angleController(float* aircraftAngles, float* desiredAngles, float* aircraftAngularRates, float* desiredAngularRates, int16_t* controlSignals) {
+
+	desiredAngularRates[0] = -1.0f*pidUpdateOutput(&angleModePitchController, aircraftAngles[0], desiredAngles[0]);
+	desiredAngularRates[1] = -1.0f*pidUpdateOutput(&angleModeRollController, aircraftAngles[1], desiredAngles[1]);
+
+	rateController(aircraftAngularRates, desiredAngularRates, controlSignals);
+
+}
 
 /**
  * @brief: actuates the motors based on the controller output values for the pitch, roll, and yaw directions
@@ -167,33 +153,27 @@ void rateController(float* aircraftAngularRates, float* desiredAngularRates, int
  *
  * @returns: none
  */
-void actuateMotors(uint8_t* motorThrottle, uint8_t* rcThrottle, int16_t* controlSignals) {
-	uint8_t adjustedSpeeds[4];
+void actuateMotors(uint8_t* currentMotorThrottle, uint8_t rcThrottle, int16_t* controlSignals) {
 
-	char buf[1000];
+	currentMotorThrottle[0] = rcThrottle - controlSignals[0] + controlSignals[1] + controlSignals[2];
+	currentMotorThrottle[1] = rcThrottle - controlSignals[0] - controlSignals[1] - controlSignals[2];
+	currentMotorThrottle[2] = rcThrottle + controlSignals[0] + controlSignals[1] - controlSignals[2];
+	currentMotorThrottle[3] = rcThrottle + controlSignals[0] - controlSignals[1] + controlSignals[2];
 
-	adjustedSpeeds[0] = rcThrottle[0] - controlSignals[0] + controlSignals[1] + controlSignals[2];
-	adjustedSpeeds[1] = rcThrottle[1] - controlSignals[0] - controlSignals[1] - controlSignals[2];
-	adjustedSpeeds[2] = rcThrottle[2] + controlSignals[0] + controlSignals[1] - controlSignals[2];
-	adjustedSpeeds[3] = rcThrottle[3] + controlSignals[0] - controlSignals[1] + controlSignals[2];
-
-	// limit motor speeds to between 50 and 70
+	// limit motor speeds to between 50 and 80
 	for(uint8_t i = 0; i < 4; i++) {
-		if(adjustedSpeeds[i] > 90) {
-			adjustedSpeeds[i] = 90;
+		if(currentMotorThrottle[i] > 80) {
+			currentMotorThrottle[i] = 80;
 		}
-		else if(adjustedSpeeds[i] < 50) {
-			adjustedSpeeds[i] = 50;
+		else if(currentMotorThrottle[i] < 50) {
+			currentMotorThrottle[i] = 50;
 		}
 	}
 
-	sprintf(buf, "%hd, %hd, %hd, %hd \r\n",  adjustedSpeeds[0], adjustedSpeeds[1], adjustedSpeeds[2], adjustedSpeeds[3]);
-	HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
-
-	motorSetSpeed(frontRightMotor, adjustedSpeeds[0]);
-	motorSetSpeed(frontLeftMotor, adjustedSpeeds[1]);
-	motorSetSpeed(rearRightMotor, adjustedSpeeds[2]);
-	motorSetSpeed(rearLeftMotor, adjustedSpeeds[3]);
+	motorSetSpeed(frontRightMotor, currentMotorThrottle[0]);
+	motorSetSpeed(frontLeftMotor, currentMotorThrottle[1]);
+	motorSetSpeed(rearRightMotor, currentMotorThrottle[2]);
+	motorSetSpeed(rearLeftMotor, currentMotorThrottle[3]);
 }
 
 /**
