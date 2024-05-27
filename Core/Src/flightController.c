@@ -63,9 +63,9 @@ void imuExtractAndFilter(float* accelerometerData, float* gyroscopeData) {
 	getGyroData(gyroDataRaw);
 
 	// filter accelerometer values and adjust for initial offset
-	accelerometerData[0] = firFilterUpdate(&accelXDataLPF, accelDataRaw[0]) - accelXOffset;
-	accelerometerData[1] = firFilterUpdate(&accelYDataLPF, accelDataRaw[1]) - accelYOffset;
-	accelerometerData[2] = firFilterUpdate(&accelZDataLPF, accelDataRaw[2]) - accelZOffset;
+	accelerometerData[0] = firFilterUpdate(&accelXDataLPF, accelDataRaw[0], FIR_IMPULSE_RESPONSE_10HZ) - accelXOffset;
+	accelerometerData[1] = firFilterUpdate(&accelYDataLPF, accelDataRaw[1], FIR_IMPULSE_RESPONSE_10HZ) - accelYOffset;
+	accelerometerData[2] = firFilterUpdate(&accelZDataLPF, accelDataRaw[2], FIR_IMPULSE_RESPONSE_10HZ) - accelZOffset;
 
 	// adjust gyroscope values for initial offset
 	gyroscopeData[0] = gyroDataRaw[0] - gyroXOffset;

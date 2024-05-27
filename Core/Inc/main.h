@@ -59,14 +59,52 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define MPU6500_NCS_Pin GPIO_PIN_12
-#define MPU6500_NCS_GPIO_Port GPIOB
+#define BATT_ADC_Pin GPIO_PIN_13
+#define BATT_ADC_GPIO_Port GPIOC
+#define MPU6500_MOSI_Pin GPIO_PIN_1
+#define MPU6500_MOSI_GPIO_Port GPIOC
+#define MPU6500_MISO_Pin GPIO_PIN_2
+#define MPU6500_MISO_GPIO_Port GPIOC
+#define GPS_TX_Pin GPIO_PIN_2
+#define GPS_TX_GPIO_Port GPIOA
+#define GPS_RX_Pin GPIO_PIN_3
+#define GPS_RX_GPIO_Port GPIOA
+#define NRF24_SCK_Pin GPIO_PIN_5
+#define NRF24_SCK_GPIO_Port GPIOA
+#define NRF24_MISO_Pin GPIO_PIN_6
+#define NRF24_MISO_GPIO_Port GPIOA
+#define NRF24_MOSI_Pin GPIO_PIN_7
+#define NRF24_MOSI_GPIO_Port GPIOA
+#define CAM_SD_MOSI_Pin GPIO_PIN_0
+#define CAM_SD_MOSI_GPIO_Port GPIOB
+#define MPU6500_SCK_Pin GPIO_PIN_10
+#define MPU6500_SCK_GPIO_Port GPIOB
+#define MPU6500_CS_Pin GPIO_PIN_12
+#define MPU6500_CS_GPIO_Port GPIOB
 #define NRF24_CE_Pin GPIO_PIN_7
 #define NRF24_CE_GPIO_Port GPIOC
-#define DBG_LED_Pin GPIO_PIN_2
-#define DBG_LED_GPIO_Port GPIOD
+#define FRONT_RIGHT_MOTOR_PWM_Pin GPIO_PIN_8
+#define FRONT_RIGHT_MOTOR_PWM_GPIO_Port GPIOA
+#define FRONT_LEFT_MOTOR_PWM_Pin GPIO_PIN_9
+#define FRONT_LEFT_MOTOR_PWM_GPIO_Port GPIOA
+#define REAR_RIGHT_MOTOR_PWM_Pin GPIO_PIN_10
+#define REAR_RIGHT_MOTOR_PWM_GPIO_Port GPIOA
+#define REAR_LEFT_MOTOR_PWM_Pin GPIO_PIN_11
+#define REAR_LEFT_MOTOR_PWM_GPIO_Port GPIOA
+#define SD_CS_Pin GPIO_PIN_15
+#define SD_CS_GPIO_Port GPIOA
+#define CAM_SD_SCK_Pin GPIO_PIN_10
+#define CAM_SD_SCK_GPIO_Port GPIOC
+#define CAM_SD_MISO_Pin GPIO_PIN_11
+#define CAM_SD_MISO_GPIO_Port GPIOC
+#define CAM_CS_Pin GPIO_PIN_12
+#define CAM_CS_GPIO_Port GPIOC
 #define NRF24_CS_Pin GPIO_PIN_6
 #define NRF24_CS_GPIO_Port GPIOB
+#define BMP390_SCL_Pin GPIO_PIN_8
+#define BMP390_SCL_GPIO_Port GPIOB
+#define BMP390_SDA_Pin GPIO_PIN_9
+#define BMP390_SDA_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

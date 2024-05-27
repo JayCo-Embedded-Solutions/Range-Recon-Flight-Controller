@@ -7,11 +7,6 @@
 
 #include "firFilter.h"
 
-// filter coefficients for 16-tap Butterworth filter with a cutoff frequency of 10Hz
-static float firImpulseResponse[FIR_FILTER_LENGTH] = { 0.01919f, 0.02748f, 0.04323f, 0.06096f, 0.07885f, 0.09485f,
-													   0.10689f, 0.11336f, 0.11336f, 0.10689f, 0.09485f, 0.07885f,
-													   0.06096f, 0.04323f, 0.02748f, 0.01919f};
-
 /**
  * @brief: initializes a fir filter object
  *
@@ -40,7 +35,7 @@ void firFilterInit(firFilter* filter) {
  *
  * @returns: the new filtered output data based on the convolution of past outputs with the filter coefficients
  */
-float firFilterUpdate(firFilter* filter, float inputData) {
+float firFilterUpdate(firFilter* filter, float inputData, const float* firImpulseResponse) {
 	// store input sample in circular buffer
 	filter->circBuf[filter->bufIndex] = inputData;
 

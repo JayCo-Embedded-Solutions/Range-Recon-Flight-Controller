@@ -7,28 +7,44 @@
 
 #include "movingAvgFilter.h"
 
-void movingAvgFilterInit(movingAvgFilter* filter) {
-	// initialize filter buffer and pointer to 0
-	for(int i = 0; i<bufSize; i++) {
-		filter->buffer[i] = 0;
-	}
-	filter->bufPtr = 0;
+/**
+ * TODO
+ */
+void movingAvgFilterInit(movingAvgFilter* filter, uint8_t numSamplesToAverage) {
+  filter->numSamples = numSamplesToAverage;
 
-	filter->filterOutput = 0;
+  // Allocate buffer to store N most recent samples
+	filter->samples = (float*)calloc(numSamplesToAverage, sizeof(float));
+
+	filter->endPtr = filter->samples;
+
+	filter->validSamples = 0;
 }
 
-uint16_t movingAvgFilterUpdate(movingAvgFilter* filter, uint16_t inputData) {
-	// store current input data in the buffer
-	filter->buffer[filter->bufPtr] = inputData;
+/**
+ * Inserts the new sample into the sample buffer and then returns the average value of all samples.
+ * NOTE: If the buffer is full, this will overwrite the oldest sample.
+ *
+ * @param filter: The address of the filter to be updated.
+ * @param newSample: The sample to add to the buffer.
+ *
+ * @returns: The updated average of all sample values.
+ */
+float movingAvgFilterUpdate(movingAvgFilter* filter, float newSample) {
+  // Insert new sample into buffer
+  *(filter->endPtr) = newSample;
 
-	// wrap bufPtr around if it has reached the end of the buffer
-	filter->bufPtr = filter->bufPtr == bufSize ? 0 : filter->bufPtr++;
+  // If end pointer is at ending address of the allocated buffer, circle back to beginning
+  (filter->endPtr == filter->samples + filter->numSamples - 1) ? filter->endPtr = filter->samples : filter->endPtr++;
 
-	// average the buffer values and return
-	filter->filterOutput = 0;
-	for(int i = 0; i<bufSize; i++) {
-		filter->filterOutput += filter->buffer[i];
-	}
+  // Update number of valid samples if necessary
+  if (filter->validSamples < filter->numSamples) filter->validSamples++;
 
-	return filter->filterOutput / bufSize;
+  // Calculate & return new average, making sure to not count invalid samples
+  float sum = 0.0f;
+  for (uint8_t i = 0; i < filter->validSamples; i++) {
+    sum += filter->samples[i]; // Note that the order in which we sum samples doesn't need to match the order when they were added to the buffer.
+  }
+
+  return sum / filter->validSamples;
 }

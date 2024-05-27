@@ -25,6 +25,9 @@
 #include "nRF24l01.h"
 #include "mpu6500.h"
 #include "flightController.h"
+#include "bmp390.h"
+#include "movingAvgFilter.h"
+#include "filter.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,15 +46,19 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+I2C_HandleTypeDef hi2c1;
+
 IWDG_HandleTypeDef hiwdg;
 
 SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi2;
+SPI_HandleTypeDef hspi3;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim14;
 
 UART_HandleTypeDef huart4;
+UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
@@ -66,6 +73,9 @@ static void MX_UART4_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_TIM14_Init(void);
 static void MX_IWDG_Init(void);
+static void MX_I2C1_Init(void);
+static void MX_SPI3_Init(void);
+static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -109,7 +119,13 @@ int main(void)
   MX_UART4_Init();
   MX_SPI2_Init();
   MX_TIM14_Init();
+//  MX_IWDG_Init();
+  MX_I2C1_Init();
+  MX_SPI3_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
+
+  hiwdg.Instance->PR = IWDG_PRESCALER_256; // set prescaler to max value (makes clock extremely slow)
 
   HAL_TIM_Base_Start(&htim14);
 
@@ -122,18 +138,59 @@ int main(void)
   nRF24RxMode(rxAddress, channelNum);
 
   float accelData[3], gyroData[3];
-  float craftAngles[2] = {0, 0};
-  float desAngles[2] = {0, 0};
-  float desAngleRates[3] = {0, 0, 0};
-  int16_t ctrlSignals[3] = {0, 0, 0};
+  float rawAccelData[3];
+  float craftAngles[2] = {0, 0}; // pitch, roll
+  float desAngles[2] = {0, 0}; // desired angles
+  float desAngleRates[3] = {0, 0, 0}; // for rate controller: desired angle rate (pitch, roll, yaw)
+  int16_t ctrlSignals[3] = {0, 0, 0}; // value from 0-20, output from pid controller (represents adjustments in pitch/roll/yaw directions to hit desired value)
   uint8_t RCThrottle = 50;
-  uint8_t motorThrottle[4] = {50, 50, 50, 50};
+  uint8_t motorThrottle[4] = {50, 50, 50, 50}; // motor output, changed based on pitch,row,yaw change from controller
 
   mpu6500Init();
   flightControllerInit();
   initializeMotors();
 
-  MX_IWDG_Init();
+  hiwdg.Instance->PR = IWDG_PRESCALER_4; // set prescalar back to initial value, effectively starting the iwdg again
+//  MX_IWDG_Init();
+
+  BMP390 bmp;
+  uint8_t errors = 0;
+
+  float accelAlt = 0;
+
+  uint16_t prevTime = __HAL_TIM_GET_COUNTER(&htim14);
+  uint16_t time = prevTime;
+
+  float zVelocity = 0;
+  float zPosition = 0;
+
+  float lpfAccelZ = 0;
+  float prevAccel = 0;
+
+  const uint8_t altSamplesToAverage = 25;
+
+  errors += bmp390Init(&bmp);
+  movingAvgFilter altFiltered;
+  movingAvgFilterInit(&altFiltered, altSamplesToAverage);
+
+  movingAvgFilter accelAvgFilter;
+  movingAvgFilterInit(&accelAvgFilter, 10);
+
+  BWLowPass* lpf = create_bw_low_pass_filter(2, 50, 2);
+
+  // Fill altitude buffer before calculating offset
+  for (int i = 0; i < altSamplesToAverage; i++) {
+    errors += bmp390Update(&bmp);
+    movingAvgFilterUpdate(&altFiltered, bmp.alt);
+  }
+
+  float altOffset = movingAvgFilterUpdate(&altFiltered, bmp.alt);
+
+  // Wait for buffer to fill with normalized data
+  for (int i = 0; i < altSamplesToAverage; i++) {
+    errors += bmp390Update(&bmp);
+    movingAvgFilterUpdate(&altFiltered, bmp.alt - altOffset);
+  }
 
   /* USER CODE END 2 */
 
@@ -144,22 +201,51 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    updateCraftAngles(accelData, gyroData, craftAngles);
 
-	uint32_t xVal, yVal, mappedTimerVal;
-	if(isDataAvailable(rxPipe)) {
-		nRF24Receive(rxData);
-		xVal = (rxData[0] << 24 | rxData[1] << 16 | rxData[2] << 8 | rxData[3]);
-		yVal = (rxData[4] << 24 | rxData[5] << 16 | rxData[6] << 8 | rxData[7]);
-		HAL_IWDG_Refresh(&hiwdg);
-	} else { continue; }
-//
-	mappedTimerVal = mapPWM(xVal);
+    errors += bmp390Update(&bmp);
 
-	RCThrottle = mappedTimerVal;
+    float filteredAlt = movingAvgFilterUpdate(&altFiltered, bmp.alt - altOffset);
 
-	updateCraftAngles(accelData, gyroData, craftAngles);
-	angleController(craftAngles, desAngles, gyroData, desAngleRates, ctrlSignals);
-	actuateMotors(motorThrottle, RCThrottle, ctrlSignals);
+    prevTime = time;
+    time = __HAL_TIM_GET_COUNTER(&htim14);
+    int timeDiff_us = (time-prevTime < 0) ? 65536+time-prevTime : time-prevTime;
+
+    getAccelData(rawAccelData);
+    prevAccel = lpfAccelZ;
+    lpfAccelZ = bw_low_pass(lpf, rawAccelData[2] - accelZOffset);
+
+    zVelocity += prevAccel * ((float)timeDiff_us / USecs2Secs);
+
+    accelAlt += 0.5 * lpfAccelZ * ((float)timeDiff_us / USecs2Secs);
+
+    char buf[1000];
+//    sprintf(buf, "Raw:%f,Filtered:%f,\r\n", bmp.alt - altOffset, filteredAlt);
+//    HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
+
+
+//    sprintf(buf, "AccelAlt:%f,BaroAlt:%f,FusedAlt:%f\r\n", accelAlt, filteredAlt, 0.5*accelAlt + 0.5*filteredAlt);
+//    sprintf(buf, "filteredAccel:%f,zVelocity:%f\r\n", lpfAccelZ, zVelocity);
+//    sprintf(buf, "accelAlt:%f\r\n", accelAlt);
+//    sprintf(buf, "baroAlt:%f\r\n", filteredAlt);
+    sprintf(buf, "pitch:%f,roll:%f\r\n", craftAngles[0], craftAngles[1]);
+    HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
+
+    uint32_t xVal, yVal, mappedTimerVal;
+    if(isDataAvailable(rxPipe)) {
+      nRF24Receive(rxData);
+      xVal = (rxData[0] << 24 | rxData[1] << 16 | rxData[2] << 8 | rxData[3]);
+      yVal = (rxData[4] << 24 | rxData[5] << 16 | rxData[6] << 8 | rxData[7]);
+  //		HAL_IWDG_Refresh(&hiwdg);
+    } else { continue; }
+  //
+    mappedTimerVal = mapPWM(xVal);
+
+    RCThrottle = mappedTimerVal;
+
+    updateCraftAngles(accelData, gyroData, craftAngles);
+    angleController(craftAngles, desAngles, gyroData, desAngleRates, ctrlSignals);
+    actuateMotors(motorThrottle, RCThrottle, ctrlSignals);
 
 //	char buf[1000];
 //	sprintf(buf, " FR: %hu, FL: %hu, RR: %hu, RL: %hu \r\n",  motorThrottle[0], motorThrottle[1], motorThrottle[2], motorThrottle[3]);
@@ -233,6 +319,40 @@ void SystemClock_Config(void)
 }
 
 /**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 400000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
   * @brief IWDG Initialization Function
   * @param None
   * @retval None
@@ -249,7 +369,7 @@ static void MX_IWDG_Init(void)
   /* USER CODE END IWDG_Init 1 */
   hiwdg.Instance = IWDG;
   hiwdg.Init.Prescaler = IWDG_PRESCALER_4;
-  hiwdg.Init.Reload = 4095;
+  hiwdg.Init.Reload = 1000;
   if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
   {
     Error_Handler();
@@ -321,7 +441,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -333,6 +453,44 @@ static void MX_SPI2_Init(void)
   /* USER CODE BEGIN SPI2_Init 2 */
 
   /* USER CODE END SPI2_Init 2 */
+
+}
+
+/**
+  * @brief SPI3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI3_Init(void)
+{
+
+  /* USER CODE BEGIN SPI3_Init 0 */
+
+  /* USER CODE END SPI3_Init 0 */
+
+  /* USER CODE BEGIN SPI3_Init 1 */
+
+  /* USER CODE END SPI3_Init 1 */
+  /* SPI3 parameter configuration*/
+  hspi3.Instance = SPI3;
+  hspi3.Init.Mode = SPI_MODE_MASTER;
+  hspi3.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi3.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi3.Init.NSS = SPI_NSS_SOFT;
+  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi3.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI3_Init 2 */
+
+  /* USER CODE END SPI3_Init 2 */
 
 }
 
@@ -460,7 +618,7 @@ static void MX_UART4_Init(void)
 
   /* USER CODE END UART4_Init 1 */
   huart4.Instance = UART4;
-  huart4.Init.BaudRate = 115200;
+  huart4.Init.BaudRate = 250000;
   huart4.Init.WordLength = UART_WORDLENGTH_8B;
   huart4.Init.StopBits = UART_STOPBITS_1;
   huart4.Init.Parity = UART_PARITY_NONE;
@@ -478,6 +636,39 @@ static void MX_UART4_Init(void)
 }
 
 /**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -490,39 +681,56 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, MPU6500_NCS_Pin|NRF24_CS_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, MPU6500_CS_Pin|NRF24_CS_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(NRF24_CE_GPIO_Port, NRF24_CE_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, NRF24_CE_Pin|CAM_CS_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(DBG_LED_GPIO_Port, DBG_LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(SD_CS_GPIO_Port, SD_CS_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : MPU6500_NCS_Pin NRF24_CS_Pin */
-  GPIO_InitStruct.Pin = MPU6500_NCS_Pin|NRF24_CS_Pin;
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_2, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : BATT_ADC_Pin */
+  GPIO_InitStruct.Pin = BATT_ADC_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(BATT_ADC_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : MPU6500_CS_Pin NRF24_CS_Pin */
+  GPIO_InitStruct.Pin = MPU6500_CS_Pin|NRF24_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : NRF24_CE_Pin */
-  GPIO_InitStruct.Pin = NRF24_CE_Pin;
+  /*Configure GPIO pins : NRF24_CE_Pin CAM_CS_Pin */
+  GPIO_InitStruct.Pin = NRF24_CE_Pin|CAM_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(NRF24_CE_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : DBG_LED_Pin */
-  GPIO_InitStruct.Pin = DBG_LED_Pin;
+  /*Configure GPIO pin : SD_CS_Pin */
+  GPIO_InitStruct.Pin = SD_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(DBG_LED_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(SD_CS_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PD2 */
+  GPIO_InitStruct.Pin = GPIO_PIN_2;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
