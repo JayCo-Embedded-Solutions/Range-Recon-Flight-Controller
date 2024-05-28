@@ -59,8 +59,8 @@ extern pidController angleModeYawController;
 extern uint16_t gyroLastUpdate;
 
 void flightControllerInit();
-void imuExtractAndFilter(float* accelerometerData, float* gyroscopeData);
-void updateCraftAngles(float* acceleromterData, float* gyroscopeData, float* aircraftAngles);
+uint8_t imuExtractAndFilter(float* accelerometerData, float* gyroscopeData, MPU6500* mpu);
+uint8_t updateCraftAngles(float* accelerometerData, float* gyroscopeData, float* aircraftAngles, MPU6500* mpu);
 void rateController(float* aircraftAngularRates, float* desiredAngularRates, int16_t* controlSignals);
 void angleController(float* aircraftAngles, float* desiredAngles, float* aircraftAngularRates, float* desiredAngularRates, int16_t* controlSignals);
 void actuateMotors(uint8_t* currentMotorThrottle,uint8_t rcThrottle, int16_t* controlSignals);

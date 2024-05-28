@@ -52,25 +52,28 @@ void flightControllerInit() {
  *
  * @param accelerometerData: pointer to 3-element array containing accelerometer data for x, y, z axes
  * @param gyroscopeData: pointer to 3-element array containing gyroscope data for x, y, z axes
+ * @param mpu: The address of the MPU sensor struct.
  *
- * @returns: none
+ * @returns: The number of errors that occurred during transmission.
  */
-void imuExtractAndFilter(float* accelerometerData, float* gyroscopeData) {
-	float accelDataRaw[3], gyroDataRaw[3];
+uint8_t imuExtractAndFilter(float* accelerometerData, float* gyroscopeData, MPU6500* mpu) {
+  uint8_t errors = 0;
 
 	// extract raw gyroscope and accelerometer values
-	getAccelData(accelDataRaw);
-	getGyroData(gyroDataRaw);
+	errors += updateAcceleration(mpu);
+	errors += updateAngularVelocity(mpu);
 
 	// filter accelerometer values and adjust for initial offset
-	accelerometerData[0] = firFilterUpdate(&accelXDataLPF, accelDataRaw[0], FIR_IMPULSE_RESPONSE_10HZ) - accelXOffset;
-	accelerometerData[1] = firFilterUpdate(&accelYDataLPF, accelDataRaw[1], FIR_IMPULSE_RESPONSE_10HZ) - accelYOffset;
-	accelerometerData[2] = firFilterUpdate(&accelZDataLPF, accelDataRaw[2], FIR_IMPULSE_RESPONSE_10HZ) - accelZOffset;
+	accelerometerData[0] = firFilterUpdate(&accelXDataLPF, mpu->accelerationX, FIR_IMPULSE_RESPONSE_10HZ) - mpu->accelOffsetX;
+	accelerometerData[1] = firFilterUpdate(&accelYDataLPF, mpu->accelerationY, FIR_IMPULSE_RESPONSE_10HZ) - mpu->accelOffsetY;
+	accelerometerData[2] = firFilterUpdate(&accelZDataLPF, mpu->accelerationZ, FIR_IMPULSE_RESPONSE_10HZ) - mpu->accelOffsetZ;
 
 	// adjust gyroscope values for initial offset
-	gyroscopeData[0] = gyroDataRaw[0] - gyroXOffset;
-	gyroscopeData[1] = gyroDataRaw[1] - gyroYOffset;
-	gyroscopeData[2] = gyroDataRaw[2] - gyroZOffset;
+	gyroscopeData[0] = mpu->angularVelocityX - mpu->gyroOffsetX;
+	gyroscopeData[1] = mpu->angularVelocityY - mpu->gyroOffsetY;
+	gyroscopeData[2] = mpu->angularVelocityZ - mpu->gyroOffsetZ;
+
+	return errors;
 }
 
 /**
@@ -79,13 +82,15 @@ void imuExtractAndFilter(float* accelerometerData, float* gyroscopeData) {
  * @param accelerometerData: pointer to 3-element array containing accelerometer data for x, y, z axes
  * @param gyroscopeData: pointer to 3-element array containing gyroscope data for x, y, z axes
  * @param aircraftAngles: pointer to a 3-element array containing absolute angles of the craft for the x, y, and z axes
+ * @param mpu: The address of the MPU sensor struct.
  *
- * @returns: none
+ * @returns: The number of errors that occurred during transmission.
  */
-void updateCraftAngles(float* accelerometerData, float* gyroscopeData, float* aircraftAngles) {
+uint8_t updateCraftAngles(float* accelerometerData, float* gyroscopeData, float* aircraftAngles, MPU6500* mpu) {
+  uint8_t errors = 0;
 
 	// extract filtered IMU data
-	imuExtractAndFilter(accelerometerData, gyroscopeData);
+	errors += imuExtractAndFilter(accelerometerData, gyroscopeData, mpu);
 
 	float gyroAngles[2];
 	float accelAngles[2];
@@ -107,6 +112,8 @@ void updateCraftAngles(float* accelerometerData, float* gyroscopeData, float* ai
 
 	// update gyro sample time
 	gyroLastUpdate = __HAL_TIM_GET_COUNTER(&htim14);
+
+	return errors;
 }
 
 /**

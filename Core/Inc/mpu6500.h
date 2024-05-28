@@ -9,13 +9,17 @@
 #define INC_MPU6500_H_
 
 #include "stdint.h"
+#include "stm32f4xx_hal.h"
 
-extern float gyroXOffset;
-extern float gyroYOffset;
-extern float gyroZOffset;
-extern float accelXOffset;
-extern float accelYOffset;
-extern float accelZOffset;
+#define MPU6500_CS_PORT GPIOB
+#define MPU6500_CS_PIN  GPIO_PIN_12
+
+extern SPI_HandleTypeDef hspi2;
+#define MPU6500_SPI &hspi2
+
+#define SPI_TIMEOUT_SHORT 100
+#define SPI_WRITE_BITMASK 0b01111111
+#define SPI_READ_BITMASK  0b10000000
 
 /* Register Map */
 
@@ -137,15 +141,32 @@ extern float accelZOffset;
 #define MPU6500_ZA_OFFSET_H     0x7D
 #define MPU6500_ZA_OFFSET_L     0x7E
 
-void mpu6500Init();
-uint8_t gyroSelfTest();
-uint8_t accelSelfTest();
-void mpu6500WriteReg(uint8_t reg, uint8_t data);
-uint8_t mpu6500ReadReg(uint8_t reg);
-void getAccelData(float* data);
-void getGyroData(float* data);
-int16_t getTempData(int16_t roomTemp, int16_t sensitivity);
-void calibrateGyro();
-void calibrateAccel();
+typedef struct mpu6500 {
+  float angularVelocityX;
+  float angularVelocityY;
+  float angularVelocityZ;
+
+  float gyroOffsetX;
+  float gyroOffsetY;
+  float gyroOffsetZ;
+
+  float accelerationX;
+  float accelerationY;
+  float accelerationZ;
+
+  float accelOffsetX;
+  float accelOffsetY;
+  float accelOffsetZ;
+
+  float angle;
+} MPU6500;
+
+uint8_t mpu6500Init(MPU6500* mpu);
+uint8_t mpu6500WriteReg(uint8_t reg, uint8_t val);
+uint8_t mpu6500ReadReg(uint8_t reg, uint8_t* val);
+uint8_t updateAcceleration(MPU6500* mpu);
+uint8_t updateAngularVelocity(MPU6500* mpu);
+uint8_t calibrateGyro(MPU6500* mpu);
+uint8_t calibrateAccel(MPU6500* mpu);
 
 #endif /* INC_MPU6500_H_ */

@@ -138,7 +138,6 @@ int main(void)
   nRF24RxMode(rxAddress, channelNum);
 
   float accelData[3], gyroData[3];
-  float rawAccelData[3];
   float craftAngles[2] = {0, 0}; // pitch, roll
   float desAngles[2] = {0, 0}; // desired angles
   float desAngleRates[3] = {0, 0, 0}; // for rate controller: desired angle rate (pitch, roll, yaw)
@@ -146,15 +145,11 @@ int main(void)
   uint8_t RCThrottle = 50;
   uint8_t motorThrottle[4] = {50, 50, 50, 50}; // motor output, changed based on pitch,row,yaw change from controller
 
-  mpu6500Init();
-  flightControllerInit();
-  initializeMotors();
-
   hiwdg.Instance->PR = IWDG_PRESCALER_4; // set prescalar back to initial value, effectively starting the iwdg again
 //  MX_IWDG_Init();
 
   BMP390 bmp;
-  uint8_t errors = 0;
+  MPU6500 mpu;
 
   float accelAlt = 0;
 
@@ -162,10 +157,15 @@ int main(void)
   uint16_t time = prevTime;
 
   float zVelocity = 0;
-  float zPosition = 0;
 
   float lpfAccelZ = 0;
   float prevAccel = 0;
+
+  unsigned int errors = 0;
+
+  errors += mpu6500Init(&mpu);
+  flightControllerInit();
+  initializeMotors();
 
   const uint8_t altSamplesToAverage = 25;
 
@@ -201,19 +201,19 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    updateCraftAngles(accelData, gyroData, craftAngles);
+    errors += updateCraftAngles(accelData, gyroData, craftAngles, &mpu);
 
     errors += bmp390Update(&bmp);
 
-    float filteredAlt = movingAvgFilterUpdate(&altFiltered, bmp.alt - altOffset);
+//    float filteredAlt = movingAvgFilterUpdate(&altFiltered, bmp.alt - altOffset);
 
     prevTime = time;
     time = __HAL_TIM_GET_COUNTER(&htim14);
     int timeDiff_us = (time-prevTime < 0) ? 65536+time-prevTime : time-prevTime;
 
-    getAccelData(rawAccelData);
+    errors += updateAcceleration(&mpu);
     prevAccel = lpfAccelZ;
-    lpfAccelZ = bw_low_pass(lpf, rawAccelData[2] - accelZOffset);
+    lpfAccelZ = bw_low_pass(lpf, mpu.accelerationZ - mpu.accelOffsetZ);
 
     zVelocity += prevAccel * ((float)timeDiff_us / USecs2Secs);
 
@@ -231,11 +231,12 @@ int main(void)
     sprintf(buf, "pitch:%f,roll:%f\r\n", craftAngles[0], craftAngles[1]);
     HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
-    uint32_t xVal, yVal, mappedTimerVal;
+    uint32_t xVal, mappedTimerVal;
+//    uint32_t yVal;
     if(isDataAvailable(rxPipe)) {
       nRF24Receive(rxData);
       xVal = (rxData[0] << 24 | rxData[1] << 16 | rxData[2] << 8 | rxData[3]);
-      yVal = (rxData[4] << 24 | rxData[5] << 16 | rxData[6] << 8 | rxData[7]);
+//      yVal = (rxData[4] << 24 | rxData[5] << 16 | rxData[6] << 8 | rxData[7]);
   //		HAL_IWDG_Refresh(&hiwdg);
     } else { continue; }
   //
@@ -243,7 +244,7 @@ int main(void)
 
     RCThrottle = mappedTimerVal;
 
-    updateCraftAngles(accelData, gyroData, craftAngles);
+    errors += updateCraftAngles(accelData, gyroData, craftAngles, &mpu);
     angleController(craftAngles, desAngles, gyroData, desAngleRates, ctrlSignals);
     actuateMotors(motorThrottle, RCThrottle, ctrlSignals);
 
