@@ -17,9 +17,16 @@
 extern SPI_HandleTypeDef hspi2;
 #define MPU6500_SPI &hspi2
 
+extern TIM_HandleTypeDef htim2;
+
 #define SPI_TIMEOUT_SHORT 100
 #define SPI_WRITE_BITMASK 0b01111111
 #define SPI_READ_BITMASK  0b10000000
+
+// Equal to the the standard deviation squared, which is just a guess on roughly how inaccurate each sensor angle is.
+#define MPU6500_GYRO_ANGLE_VARIANCE 16
+#define MPU6500_ACCEL_ANGLE_VARIANCE 9
+#define MPU6500_INITIAL_ANGLE_VARIANCE 4
 
 /* Register Map */
 
@@ -142,29 +149,54 @@ extern SPI_HandleTypeDef hspi2;
 #define MPU6500_ZA_OFFSET_L     0x7E
 
 typedef struct mpu6500 {
+  // Kalman-filtered angles (use these for the most accurate data)
+  float roll;
+  float pitch;
+
+  // Kalman uncertainty values
+  float rollUncertainty;
+  float pitchUncertainty;
+
+  // Gyroscope sensor values
   float angularVelocityX;
   float angularVelocityY;
   float angularVelocityZ;
 
-  float gyroOffsetX;
-  float gyroOffsetY;
-  float gyroOffsetZ;
-
+  // Accelerometer sensor values
   float accelerationX;
   float accelerationY;
   float accelerationZ;
 
+  // Gyroscope calibration values
+  float gyroOffsetX;
+  float gyroOffsetY;
+  float gyroOffsetZ;
+
+  // Accelerometer calibration values
   float accelOffsetX;
   float accelOffsetY;
   float accelOffsetZ;
 
-  float angle;
+  // Accelerometer-calculated roll and pitch angles
+  float accelRoll;
+  float accelPitch;
+
+  // Gyroscope-calculated roll and pitch angles
+  float angularVRoll;
+  float angularVPitch;
+
+  // Timestamp that represents when the data was last updated (in microseconds)
+  uint32_t timeUpdatedGyro;
+  uint32_t timeUpdatedKalman;
 } MPU6500;
 
 uint8_t mpu6500Init(MPU6500* mpu);
 uint8_t mpu6500Update(MPU6500* mpu);
+void mpu6500UpdateKalmanAngles(MPU6500* mpu);
 uint8_t mpu6500UpdateAcceleration(MPU6500* mpu);
 uint8_t mpu6500UpdateAngularVelocity(MPU6500* mpu);
+void mpu6500UpdateAccelerationAngles(MPU6500* mpu);
+void mpu6500UpdateAngularVelocityAngles(MPU6500* mpu);
 uint8_t mpu6500CalibrateGyro(MPU6500* mpu);
 uint8_t mpu6500CalibrateAccel(MPU6500* mpu);
 uint8_t mpu6500WriteReg(uint8_t reg, uint8_t val);

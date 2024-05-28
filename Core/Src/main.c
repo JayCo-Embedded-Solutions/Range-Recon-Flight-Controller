@@ -55,7 +55,7 @@ SPI_HandleTypeDef hspi2;
 SPI_HandleTypeDef hspi3;
 
 TIM_HandleTypeDef htim1;
-TIM_HandleTypeDef htim14;
+TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart2;
@@ -71,11 +71,11 @@ static void MX_TIM1_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_UART4_Init(void);
 static void MX_SPI2_Init(void);
-static void MX_TIM14_Init(void);
 static void MX_IWDG_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_SPI3_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -118,16 +118,16 @@ int main(void)
   MX_SPI1_Init();
   MX_UART4_Init();
   MX_SPI2_Init();
-  MX_TIM14_Init();
 //  MX_IWDG_Init();
   MX_I2C1_Init();
   MX_SPI3_Init();
   MX_USART2_UART_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
-  hiwdg.Instance->PR = IWDG_PRESCALER_256; // set prescaler to max value (makes clock extremely slow)
+  HAL_TIM_Base_Start(&htim2); // no idea what this does
 
-  HAL_TIM_Base_Start(&htim14);
+  hiwdg.Instance->PR = IWDG_PRESCALER_256; // set prescaler to max value (makes clock extremely slow)
 
   uint8_t rxAddress[5] = {0xEE, 0xDD, 0xCC, 0xBB, 0xAA};
   uint8_t channelNum = 10;
@@ -153,8 +153,8 @@ int main(void)
 
   float accelAlt = 0;
 
-  uint16_t prevTime = __HAL_TIM_GET_COUNTER(&htim14);
-  uint16_t time = prevTime;
+//  uint16_t prevTime = __HAL_TIM_GET_COUNTER(&htim14);
+//  uint16_t time = prevTime;
 
   float zVelocity = 0;
 
@@ -192,6 +192,10 @@ int main(void)
     movingAvgFilterUpdate(&altFiltered, bmp.alt - altOffset);
   }
 
+  char buf[1000];
+
+  unsigned int iterations = 0;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -201,25 +205,28 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    while (errors > 0) {
+      sprintf(buf, "ERROR\r\n");
+      HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
+    }
     errors += updateCraftAngles(accelData, gyroData, craftAngles, &mpu);
 
     errors += bmp390Update(&bmp);
 
 //    float filteredAlt = movingAvgFilterUpdate(&altFiltered, bmp.alt - altOffset);
 
-    prevTime = time;
-    time = __HAL_TIM_GET_COUNTER(&htim14);
-    int timeDiff_us = (time-prevTime < 0) ? 65536+time-prevTime : time-prevTime;
+//    prevTime = time;
+//    time = __HAL_TIM_GET_COUNTER(&htim14);
+//    int timeDiff_us = (time-prevTime < 0) ? 65536+time-prevTime : time-prevTime;
+//
+//    errors += mpu6500Update(&mpu);
+//    prevAccel = lpfAccelZ;
+//    lpfAccelZ = bw_low_pass(lpf, mpu.accelerationZ - mpu.accelOffsetZ);
+//
+//    zVelocity += prevAccel * ((float)timeDiff_us / USecs2Secs);
+//
+//    accelAlt += 0.5 * lpfAccelZ * ((float)timeDiff_us / USecs2Secs);
 
-    errors += mpu6500Update(&mpu);
-    prevAccel = lpfAccelZ;
-    lpfAccelZ = bw_low_pass(lpf, mpu.accelerationZ - mpu.accelOffsetZ);
-
-    zVelocity += prevAccel * ((float)timeDiff_us / USecs2Secs);
-
-    accelAlt += 0.5 * lpfAccelZ * ((float)timeDiff_us / USecs2Secs);
-
-    char buf[1000];
 //    sprintf(buf, "Raw:%f,Filtered:%f,\r\n", bmp.alt - altOffset, filteredAlt);
 //    HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
@@ -228,8 +235,12 @@ int main(void)
 //    sprintf(buf, "filteredAccel:%f,zVelocity:%f\r\n", lpfAccelZ, zVelocity);
 //    sprintf(buf, "accelAlt:%f\r\n", accelAlt);
 //    sprintf(buf, "baroAlt:%f\r\n", filteredAlt);
-    sprintf(buf, "pitch:%f,roll:%f\r\n", craftAngles[0], craftAngles[1]);
+//    sprintf(buf, "timer2:%lu,halTick:%lu\r\n", TIM2->CNT / 1000000, HAL_GetTick());
+    sprintf(buf, "accelPitch:%f,accelRoll:%f,gyroPitch:%f,gyroRoll:%f,kalmanPitch:%f,kalmanRoll:%f\r\n", mpu.accelPitch, mpu.accelRoll, mpu.angularVPitch, mpu.angularVRoll, mpu.pitch, mpu.roll);
+//    sprintf(buf, "accelerationX:%f,accelerationY:%f,accelerationZ:%f\r\n", mpu.accelerationX, mpu.accelerationY, mpu.accelerationZ);
     HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
+
+    iterations++;
 
     uint32_t xVal, mappedTimerVal;
 //    uint32_t yVal;
@@ -573,33 +584,61 @@ static void MX_TIM1_Init(void)
 }
 
 /**
-  * @brief TIM14 Initialization Function
+  * @brief TIM2 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_TIM14_Init(void)
+static void MX_TIM2_Init(void)
 {
 
-  /* USER CODE BEGIN TIM14_Init 0 */
+  /* USER CODE BEGIN TIM2_Init 0 */
 
-  /* USER CODE END TIM14_Init 0 */
+  /* USER CODE END TIM2_Init 0 */
 
-  /* USER CODE BEGIN TIM14_Init 1 */
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
 
-  /* USER CODE END TIM14_Init 1 */
-  htim14.Instance = TIM14;
-  htim14.Init.Prescaler = 80-1;
-  htim14.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim14.Init.Period = 65535;
-  htim14.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim14.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim14) != HAL_OK)
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 80-1;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 4294967295;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN TIM14_Init 2 */
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_OC_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_TIMING;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_OC_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
 
-  /* USER CODE END TIM14_Init 2 */
+  /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
 
 }
 

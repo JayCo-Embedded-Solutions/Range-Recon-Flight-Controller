@@ -7,7 +7,7 @@
 
 #include "flightController.h"
 
-extern TIM_HandleTypeDef htim14;
+extern TIM_HandleTypeDef htim2;
 extern UART_HandleTypeDef huart4;
 
 firFilter accelXDataLPF;
@@ -30,7 +30,7 @@ uint16_t gyroLastUpdate;
  */
 void flightControllerInit() {
 	// get current time for gyroscope update
-	gyroLastUpdate = __HAL_TIM_GET_COUNTER(&htim14);
+	gyroLastUpdate = __HAL_TIM_GET_COUNTER(&htim2);
 
 	// initialize FIR low-pass filters for accelerometer data
 	firFilterInit(&accelXDataLPF);
@@ -95,7 +95,7 @@ uint8_t updateCraftAngles(float* accelerometerData, float* gyroscopeData, float*
 	float accelAngles[2];
 
 	// determine change in time since last sample
-	uint16_t dt = (__HAL_TIM_GET_COUNTER(&htim14) - gyroLastUpdate);
+	uint16_t dt = (__HAL_TIM_GET_COUNTER(&htim2) - gyroLastUpdate);
 
 	// determine gyroscope angles via gyroscope data integration
 	gyroAngles[0] = aircraftAngles[0] + (gyroscopeData[0] * dt) / USecs2Secs;
@@ -110,7 +110,7 @@ uint8_t updateCraftAngles(float* accelerometerData, float* gyroscopeData, float*
 	aircraftAngles[1] = 0.98f * gyroAngles[1] + 0.02f * accelAngles[1];
 
 	// update gyro sample time
-	gyroLastUpdate = __HAL_TIM_GET_COUNTER(&htim14);
+	gyroLastUpdate = __HAL_TIM_GET_COUNTER(&htim2);
 
 	return errors;
 }

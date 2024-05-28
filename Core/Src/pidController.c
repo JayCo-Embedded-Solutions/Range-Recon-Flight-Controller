@@ -8,7 +8,7 @@
 #include "pidController.h"
 #include "stm32f4xx_hal.h"
 
-extern TIM_HandleTypeDef htim14;
+extern TIM_HandleTypeDef htim2;
 
 /**
  * @brief: initializes a pidController object
@@ -38,7 +38,7 @@ void pidControllerInit(pidController* controller, float setKP, float setKI, floa
 	controller->dt = 0.0f;
 
 	// save current time
-	controller->lastUpdated = __HAL_TIM_GET_COUNTER(&htim14);
+	controller->lastUpdated = __HAL_TIM_GET_COUNTER(&htim2);
 }
 
 /**
@@ -55,7 +55,7 @@ float pidUpdateOutput(pidController* controller, float inputVal, float desiredVa
 	controller->currentError = inputVal - desiredVal;
 
 	// determine change in time since last sample
-	controller->dt = (float)(__HAL_TIM_GET_COUNTER(&htim14) - controller->lastUpdated) / USecs2Secs;
+	controller->dt = (float)(__HAL_TIM_GET_COUNTER(&htim2) - controller->lastUpdated) / USecs2Secs;
 
 	// calculate output value based on the gains and error
 	controller->proportional = controller->KP * controller->currentError;
@@ -66,7 +66,7 @@ float pidUpdateOutput(pidController* controller, float inputVal, float desiredVa
 
 	// store current error in previous error and update sample time
 	controller->prevError = controller->currentError;
-	controller->lastUpdated = __HAL_TIM_GET_COUNTER(&htim14);
+	controller->lastUpdated = __HAL_TIM_GET_COUNTER(&htim2);
 
 	return controller->output;
 }

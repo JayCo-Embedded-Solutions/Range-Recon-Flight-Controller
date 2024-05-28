@@ -69,8 +69,6 @@ void Error_Handler(void);
 #define GPS_TX_GPIO_Port GPIOA
 #define GPS_RX_Pin GPIO_PIN_3
 #define GPS_RX_GPIO_Port GPIOA
-#define NRF24_SCK_Pin GPIO_PIN_5
-#define NRF24_SCK_GPIO_Port GPIOA
 #define NRF24_MISO_Pin GPIO_PIN_6
 #define NRF24_MISO_GPIO_Port GPIOA
 #define NRF24_MOSI_Pin GPIO_PIN_7
@@ -99,6 +97,8 @@ void Error_Handler(void);
 #define CAM_SD_MISO_GPIO_Port GPIOC
 #define CAM_CS_Pin GPIO_PIN_12
 #define CAM_CS_GPIO_Port GPIOC
+#define NRF24_SCK_Pin GPIO_PIN_3
+#define NRF24_SCK_GPIO_Port GPIOB
 #define NRF24_CS_Pin GPIO_PIN_6
 #define NRF24_CS_GPIO_Port GPIOB
 #define BMP390_SCL_Pin GPIO_PIN_8
