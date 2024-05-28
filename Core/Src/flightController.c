@@ -60,8 +60,7 @@ uint8_t imuExtractAndFilter(float* accelerometerData, float* gyroscopeData, MPU6
   uint8_t errors = 0;
 
 	// extract raw gyroscope and accelerometer values
-	errors += updateAcceleration(mpu);
-	errors += updateAngularVelocity(mpu);
+  errors += mpu6500Update(mpu);
 
 	// filter accelerometer values and adjust for initial offset
 	accelerometerData[0] = firFilterUpdate(&accelXDataLPF, mpu->accelerationX, FIR_IMPULSE_RESPONSE_10HZ) - mpu->accelOffsetX;

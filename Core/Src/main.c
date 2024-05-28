@@ -211,7 +211,7 @@ int main(void)
     time = __HAL_TIM_GET_COUNTER(&htim14);
     int timeDiff_us = (time-prevTime < 0) ? 65536+time-prevTime : time-prevTime;
 
-    errors += updateAcceleration(&mpu);
+    errors += mpu6500Update(&mpu);
     prevAccel = lpfAccelZ;
     lpfAccelZ = bw_low_pass(lpf, mpu.accelerationZ - mpu.accelOffsetZ);
 

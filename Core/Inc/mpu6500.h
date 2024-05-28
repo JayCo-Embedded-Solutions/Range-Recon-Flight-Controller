@@ -162,11 +162,12 @@ typedef struct mpu6500 {
 } MPU6500;
 
 uint8_t mpu6500Init(MPU6500* mpu);
+uint8_t mpu6500Update(MPU6500* mpu);
+uint8_t mpu6500UpdateAcceleration(MPU6500* mpu);
+uint8_t mpu6500UpdateAngularVelocity(MPU6500* mpu);
+uint8_t mpu6500CalibrateGyro(MPU6500* mpu);
+uint8_t mpu6500CalibrateAccel(MPU6500* mpu);
 uint8_t mpu6500WriteReg(uint8_t reg, uint8_t val);
 uint8_t mpu6500ReadReg(uint8_t reg, uint8_t* val);
-uint8_t updateAcceleration(MPU6500* mpu);
-uint8_t updateAngularVelocity(MPU6500* mpu);
-uint8_t calibrateGyro(MPU6500* mpu);
-uint8_t calibrateAccel(MPU6500* mpu);
 
 #endif /* INC_MPU6500_H_ */

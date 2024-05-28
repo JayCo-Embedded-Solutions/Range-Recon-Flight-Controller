@@ -58,10 +58,27 @@ uint8_t mpu6500Init(MPU6500* mpu) {
   HAL_Delay(1000);
 
   // Calibrate the gyro to determine offset values
-  errors += calibrateGyro(mpu);
+  errors += mpu6500CalibrateGyro(mpu);
 
   // Calibrate the accelerometer to determine offset values
-  errors += calibrateAccel(mpu);
+  errors += mpu6500CalibrateAccel(mpu);
+
+  return errors;
+}
+
+/**
+ * Updates the acceleration and angular velocity values in a given MPU6500 struct.
+ * NOTE: mpu6500Init() MUST be called prior to using this function.
+ *
+ * @param mpu: The address of the MPU6500 sensor struct.
+ *
+ * @returns: The number of errors that occurred during transmission.
+ */
+uint8_t mpu6500Update(MPU6500* mpu) {
+  uint8_t errors = 0;
+
+  errors += mpu6500UpdateAcceleration(mpu);
+  errors += mpu6500UpdateAngularVelocity(mpu);
 
   return errors;
 }
@@ -76,7 +93,7 @@ uint8_t mpu6500Init(MPU6500* mpu) {
  *
  * @returns: The number of errors that occurred during transmission.
  */
-uint8_t updateAcceleration(MPU6500* mpu) {
+uint8_t mpu6500UpdateAcceleration(MPU6500* mpu) {
   uint8_t errors = 0;
   uint8_t buf[2] = {0, 0}; // Temporary buffer to store raw register values
 
@@ -108,7 +125,7 @@ uint8_t updateAcceleration(MPU6500* mpu) {
  *
  * @returns: The number of errors that occurred during transmission.
  */
-uint8_t updateAngularVelocity(MPU6500* mpu) {
+uint8_t mpu6500UpdateAngularVelocity(MPU6500* mpu) {
   uint8_t errors = 0;
   uint8_t buf[2] = {0, 0}; // Temporary buffer to store raw register values
 
@@ -138,7 +155,7 @@ uint8_t updateAngularVelocity(MPU6500* mpu) {
  *
  * @returns: The number of errors that occurred during transmission.
  */
-uint8_t calibrateGyro(MPU6500* mpu) {
+uint8_t mpu6500CalibrateGyro(MPU6500* mpu) {
   uint8_t errors = 0;
 
 	// declare number of desired samples, arrays to store individual and total sample data
@@ -147,7 +164,7 @@ uint8_t calibrateGyro(MPU6500* mpu) {
 
 	// collect samples and store the sum in offSetData array
 	for(uint8_t i = 0; i<numSamples; i++) {
-		errors += updateAngularVelocity(mpu);
+		errors += mpu6500UpdateAngularVelocity(mpu);
 
 		offsetData[0] += mpu->angularVelocityX;
 		offsetData[1] += mpu->angularVelocityY;
@@ -170,7 +187,7 @@ uint8_t calibrateGyro(MPU6500* mpu) {
  *
  * @returns: The number of errors that occurred during transmission.
  */
-uint8_t calibrateAccel(MPU6500* mpu) {
+uint8_t mpu6500CalibrateAccel(MPU6500* mpu) {
   uint8_t errors = 0;
 
 	// declare number of desired samples, arrays to store individual and total sample data
@@ -179,7 +196,7 @@ uint8_t calibrateAccel(MPU6500* mpu) {
 
 	// collect samples and store the sum in offSetData array
 	for(uint8_t i = 0; i<numSamples; i++) {
-		errors += updateAcceleration(mpu);
+		errors += mpu6500UpdateAcceleration(mpu);
 
 		offsetData[0] += mpu->accelerationX;
 		offsetData[1] += mpu->accelerationY;
