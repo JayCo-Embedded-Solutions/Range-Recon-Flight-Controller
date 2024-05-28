@@ -187,7 +187,7 @@ void nRF24Init() {
 
 	nRF24WriteReg(SETUP_RETR, 0); // not using auto-ack
 
-	nRF24WriteReg(RF_CH, 0); // will be setup during TX or RX
+	nRF24WriteReg(RF_CH, 0b01111111); // will be setup during TX or RX
 
 	nRF24WriteReg(RF_SETUP, 0b1110); // power = 2db, data rate = 2Mbps
 
@@ -325,7 +325,7 @@ void nRF24Receive(uint8_t* data) {
   HAL_SPI_Transmit(NRF24_SPI, &cmdToSend, 1, 100);
 
   // read the payload
-  HAL_SPI_Receive(NRF24_SPI, data, 32, 1000);
+  HAL_SPI_Receive(NRF24_SPI, data, 8, 1000);
 
   HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_SET);
 
@@ -334,3 +334,4 @@ void nRF24Receive(uint8_t* data) {
   // flush the receive data pipe
   nRF24SendCmd(FLUSH_RX);
 }
+
