@@ -171,13 +171,9 @@ void nRF24Init() {
 	// disable the chip before configuring the device
 	HAL_GPIO_WritePin(NRF24_CE_PORT, NRF24_CE_PIN, GPIO_PIN_RESET);
 
-	uint8_t hello = nRF24ReadReg(STATUS);
-
 	nRF24Reset(0);
 
 	nRF24WriteReg(CONFIG, 0);
-
-	uint8_t test = nRF24ReadReg(CONFIG);
 
 	nRF24WriteReg(EN_AA, 0); // don't need auto-ack
 
