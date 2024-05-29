@@ -125,9 +125,9 @@ int main(void)
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
-  HAL_TIM_Base_Start(&htim2); // no idea what this does
+  HAL_TIM_Base_Start(&htim2);
 
-  hiwdg.Instance->PR = IWDG_PRESCALER_256; // set prescaler to max value (makes clock extremely slow)
+  hiwdg.Instance->PR = IWDG_PRESCALER_256; // set prescaler to max value (makes clock extremely slow) TODO this doesn't work
 
   uint8_t rxAddress[5] = {0xEE, 0xDD, 0xCC, 0xBB, 0xAA};
   uint8_t channelNum = 10;
@@ -137,13 +137,11 @@ int main(void)
   nRF24Init();
   nRF24RxMode(rxAddress, channelNum);
 
-  float accelData[3], gyroData[3];
-  float craftAngles[2] = {0, 0}; // pitch, roll
   float desAngles[2] = {0, 0}; // desired angles
   float desAngleRates[3] = {0, 0, 0}; // for rate controller: desired angle rate (pitch, roll, yaw)
   int16_t ctrlSignals[3] = {0, 0, 0}; // value from 0-20, output from pid controller (represents adjustments in pitch/roll/yaw directions to hit desired value)
-  uint8_t RCThrottle = 50;
-  uint8_t motorThrottle[4] = {50, 50, 50, 50}; // motor output, changed based on pitch,row,yaw change from controller
+  uint8_t rcThrottle = 50;
+  uint8_t motorThrottle[4] = {50, 50, 50, 50}; // motor output, changed based on pitch, roll, yaw change from controller
 
   hiwdg.Instance->PR = IWDG_PRESCALER_4; // set prescalar back to initial value, effectively starting the iwdg again
 //  MX_IWDG_Init();
@@ -151,33 +149,19 @@ int main(void)
   BMP390 bmp;
   MPU6500 mpu;
 
-  float accelAlt = 0;
-
-//  uint16_t prevTime = __HAL_TIM_GET_COUNTER(&htim14);
-//  uint16_t time = prevTime;
-
-  float zVelocity = 0;
-
-  float lpfAccelZ = 0;
-  float prevAccel = 0;
-
   unsigned int errors = 0;
+
+  const uint8_t altSamplesToAverage = 25;
 
   errors += mpu6500Init(&mpu);
   flightControllerInit();
   initializeMotors();
 
-  const uint8_t altSamplesToAverage = 25;
-
   errors += bmp390Init(&bmp);
   movingAvgFilter altFiltered;
   movingAvgFilterInit(&altFiltered, altSamplesToAverage);
 
-  movingAvgFilter accelAvgFilter;
-  movingAvgFilterInit(&accelAvgFilter, 10);
-
-  BWLowPass* lpf = create_bw_low_pass_filter(2, 50, 2);
-
+  // TODO put this stuff into a function
   // Fill altitude buffer before calculating offset
   for (int i = 0; i < altSamplesToAverage; i++) {
     errors += bmp390Update(&bmp);
@@ -194,8 +178,6 @@ int main(void)
 
   char buf[1000];
 
-  unsigned int iterations = 0;
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -205,78 +187,46 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    while (errors > 0) {
-      sprintf(buf, "ERROR\r\n");
+    if (errors > 0) {
+      sprintf(buf, "ERRORS: %u\r\n", errors);
       HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
     }
-    errors += updateCraftAngles(accelData, gyroData, craftAngles, &mpu);
 
+    // Read sensor values and update structs
     errors += bmp390Update(&bmp);
+    errors += mpu6500Update(&mpu);
 
-//    float filteredAlt = movingAvgFilterUpdate(&altFiltered, bmp.alt - altOffset);
-
-//    prevTime = time;
-//    time = __HAL_TIM_GET_COUNTER(&htim14);
-//    int timeDiff_us = (time-prevTime < 0) ? 65536+time-prevTime : time-prevTime;
-//
-//    errors += mpu6500Update(&mpu);
-//    prevAccel = lpfAccelZ;
-//    lpfAccelZ = bw_low_pass(lpf, mpu.accelerationZ - mpu.accelOffsetZ);
-//
-//    zVelocity += prevAccel * ((float)timeDiff_us / USecs2Secs);
-//
-//    accelAlt += 0.5 * lpfAccelZ * ((float)timeDiff_us / USecs2Secs);
-
-//    sprintf(buf, "Raw:%f,Filtered:%f,\r\n", bmp.alt - altOffset, filteredAlt);
-//    HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
-
-
-//    sprintf(buf, "AccelAlt:%f,BaroAlt:%f,FusedAlt:%f\r\n", accelAlt, filteredAlt, 0.5*accelAlt + 0.5*filteredAlt);
-//    sprintf(buf, "filteredAccel:%f,zVelocity:%f\r\n", lpfAccelZ, zVelocity);
-//    sprintf(buf, "accelAlt:%f\r\n", accelAlt);
-//    sprintf(buf, "baroAlt:%f\r\n", filteredAlt);
-//    sprintf(buf, "timer2:%lu,halTick:%lu\r\n", TIM2->CNT / 1000000, HAL_GetTick());
-    sprintf(buf, "accelPitch:%f,accelRoll:%f,gyroPitch:%f,gyroRoll:%f,kalmanPitch:%f,kalmanRoll:%f\r\n", mpu.accelPitch, mpu.accelRoll, mpu.angularVPitch, mpu.angularVRoll, mpu.pitch, mpu.roll);
-//    sprintf(buf, "accelerationX:%f,accelerationY:%f,accelerationZ:%f\r\n", mpu.accelerationX, mpu.accelerationY, mpu.accelerationZ);
+    sprintf(buf, "pitch:%f,roll:%f\r\n", mpu.pitch, mpu.roll);
     HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
-    iterations++;
-
-    uint32_t xVal, mappedTimerVal;
-//    uint32_t yVal;
     if(isDataAvailable(rxPipe)) {
+//      HAL_IWDG_Refresh(&hiwdg);
       nRF24Receive(rxData);
-      xVal = (rxData[0] << 24 | rxData[1] << 16 | rxData[2] << 8 | rxData[3]);
-//      yVal = (rxData[4] << 24 | rxData[5] << 16 | rxData[6] << 8 | rxData[7]);
-  //		HAL_IWDG_Refresh(&hiwdg);
-    } else { continue; }
-  //
-    mappedTimerVal = mapPWM(xVal);
+      uint32_t xVal = (rxData[0] << 24 | rxData[1] << 16 | rxData[2] << 8 | rxData[3]);
 
-    RCThrottle = mappedTimerVal;
+      rcThrottle = mapPWM(xVal);
 
-    errors += updateCraftAngles(accelData, gyroData, craftAngles, &mpu);
-    angleController(craftAngles, desAngles, gyroData, desAngleRates, ctrlSignals);
-    actuateMotors(motorThrottle, RCThrottle, ctrlSignals);
+      angleController(&mpu, desAngles, desAngleRates, ctrlSignals);
+      actuateMotors(motorThrottle, rcThrottle, ctrlSignals);
 
-//	char buf[1000];
-//	sprintf(buf, " FR: %hu, FL: %hu, RR: %hu, RL: %hu \r\n",  motorThrottle[0], motorThrottle[1], motorThrottle[2], motorThrottle[3]);
-//	HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
-
-//	sprintf(buf, "%0.4f, %0.4f, %0.4f \r\n", accelData[0], accelData[1], accelData[2]);
-//	sprintf(buf, "%0.1f, %0.1f, %0.1f \r\n", gyroData[0], gyroData[1], gyroData[2]);
-//	sprintf(buf, "%0.1f, %0.1f, %0.1f \r\n",  craftAngles[0], craftAngles[1], craftAngles[2]);
-//	sprintf(buf, "%0.1f, %0.1f \r\n",  craftAngles[0], craftAngles[1]);
-
-//	if(craftAngles[0] > 30 || craftAngles[0] < -30) {
-//		setAllMotors(50);
-//		while(1) {}
-//	}
-//	if(craftAngles[1] > 30 || craftAngles[1] < -30) {
-//		setAllMotors(50);
-//		while(1) {}
-//	}
-
+//      char buf[1000];
+//      sprintf(buf, " FR: %hu, FL: %hu, RR: %hu, RL: %hu \r\n",  motorThrottle[0], motorThrottle[1], motorThrottle[2], motorThrottle[3]);
+//      HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
+//
+//      sprintf(buf, "%0.4f, %0.4f, %0.4f \r\n", accelData[0], accelData[1], accelData[2]);
+//      sprintf(buf, "%0.1f, %0.1f, %0.1f \r\n", gyroData[0], gyroData[1], gyroData[2]);
+//      sprintf(buf, "%0.1f, %0.1f, %0.1f \r\n",  craftAngles[0], craftAngles[1], craftAngles[2]);
+//      sprintf(buf, "%0.1f, %0.1f \r\n",  craftAngles[0], craftAngles[1]);
+//
+//      if(craftAngles[0] > 30 || craftAngles[0] < -30) {
+//        setAllMotors(50);
+//        while(1) {}
+//      }
+//      if(craftAngles[1] > 30 || craftAngles[1] < -30) {
+//        setAllMotors(50);
+//        while(1) {}
+//      }
+    }
   }
 
   /* USER CODE END 3 */

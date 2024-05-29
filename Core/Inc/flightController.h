@@ -42,11 +42,6 @@
 #define ANGLE_ROLL_KI		0.0
 #define ANGLE_ROLL_KD		0.0
 
-// accelerometer FIR filters
-extern firFilter accelXDataLPF;
-extern firFilter accelYDataLPF;
-extern firFilter accelZDataLPF;
-
 // rate mode and angle mode PID controllers
 extern pidController rateModePitchController;
 extern pidController rateModeRollController;
@@ -54,15 +49,10 @@ extern pidController rateModeYawController;
 
 extern pidController angleModePitchController;
 extern pidController angleModeRollController;
-extern pidController angleModeYawController;
-
-extern uint16_t gyroLastUpdate;
 
 void flightControllerInit();
-uint8_t imuExtractAndFilter(float* accelerometerData, float* gyroscopeData, MPU6500* mpu);
-uint8_t updateCraftAngles(float* accelerometerData, float* gyroscopeData, float* aircraftAngles, MPU6500* mpu);
-void rateController(float* aircraftAngularRates, float* desiredAngularRates, int16_t* controlSignals);
-void angleController(float* aircraftAngles, float* desiredAngles, float* aircraftAngularRates, float* desiredAngularRates, int16_t* controlSignals);
+void rateController(MPU6500* mpu, float* desiredAngularRates, int16_t* controlSignals);
+void angleController(MPU6500* mpu, float* desiredAngles, float* desiredAngularRates, int16_t* controlSignals);
 void actuateMotors(uint8_t* currentMotorThrottle,uint8_t rcThrottle, int16_t* controlSignals);
 uint8_t mapPWM(uint16_t joystickVal);
 
