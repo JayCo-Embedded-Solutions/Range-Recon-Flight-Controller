@@ -11,14 +11,12 @@
 extern TIM_HandleTypeDef htim2;
 
 /**
- * @brief: initializes a pidController object
+ * Initializes a pidController object
  *
  * @param controller: pointer to a pidController struct
  * @param setKP: desired proportional constant for controller
  * @param setKI: desired integral constant for controller
  * @param setKD: desired derivative constant for controller
- *
- * @returns: none
  */
 void pidControllerInit(pidController* controller, float setKP, float setKI, float setKD) {
 	// initialize gain constants
@@ -38,11 +36,11 @@ void pidControllerInit(pidController* controller, float setKP, float setKI, floa
 	controller->dt = 0.0f;
 
 	// save current time
-	controller->lastUpdated = __HAL_TIM_GET_COUNTER(&htim2);
+	controller->lastUpdated = htim2.Instance->CNT;
 }
 
 /**
- * @brief: calculates and outputs control signal based on the input and desired signals
+ * Calculates and outputs control signal based on the input and desired signals
  *
  * @param controller: pointer to a pidController struct
  * @param inputVal: the actual value of a signal
@@ -55,7 +53,7 @@ float pidUpdateOutput(pidController* controller, float inputVal, float desiredVa
 	controller->currentError = inputVal - desiredVal;
 
 	// determine change in time since last sample
-	controller->dt = (float)(__HAL_TIM_GET_COUNTER(&htim2) - controller->lastUpdated) / USecs2Secs;
+	controller->dt = (float)(htim2.Instance->CNT - controller->lastUpdated) / US_TO_S;
 
 	// calculate output value based on the gains and error
 	controller->proportional = controller->KP * controller->currentError;
@@ -66,7 +64,7 @@ float pidUpdateOutput(pidController* controller, float inputVal, float desiredVa
 
 	// store current error in previous error and update sample time
 	controller->prevError = controller->currentError;
-	controller->lastUpdated = __HAL_TIM_GET_COUNTER(&htim2);
+	controller->lastUpdated = htim2.Instance->CNT;
 
 	return controller->output;
 }

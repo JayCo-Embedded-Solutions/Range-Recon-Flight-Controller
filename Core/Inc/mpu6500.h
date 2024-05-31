@@ -28,6 +28,8 @@ extern TIM_HandleTypeDef htim2;
 #define MPU6500_ACCEL_ANGLE_VARIANCE 9
 #define MPU6500_INITIAL_ANGLE_VARIANCE 4
 
+#define US_TO_S 1000000.0
+
 /* Register Map */
 
 /* Gyroscope Self-Test Registers */
@@ -153,6 +155,9 @@ typedef struct mpu6500 {
   float roll;
   float pitch;
 
+  // Velocity from accelerometer in the absolute vertical direction
+  float verticalVelocity;
+
   // Kalman uncertainty values
   float rollUncertainty;
   float pitchUncertainty;
@@ -186,17 +191,17 @@ typedef struct mpu6500 {
   float angularVPitch;
 
   // Timestamp that represents when the data was last updated (in microseconds)
-  uint32_t timeUpdatedGyro;
-  uint32_t timeUpdatedKalman;
+  uint32_t timeUpdated;
 } MPU6500;
 
 uint8_t mpu6500Init(MPU6500* mpu);
 uint8_t mpu6500Update(MPU6500* mpu);
-void mpu6500UpdateKalmanAngles(MPU6500* mpu);
+void mpu6500UpdateKalmanAngles(MPU6500* mpu, float timeDiff);
+void mpu6500UpdateVerticalVelocity(MPU6500* mpu, float timeDiff);
 uint8_t mpu6500UpdateAcceleration(MPU6500* mpu);
 uint8_t mpu6500UpdateAngularVelocity(MPU6500* mpu);
 void mpu6500UpdateAccelerationAngles(MPU6500* mpu);
-void mpu6500UpdateAngularVelocityAngles(MPU6500* mpu);
+void mpu6500UpdateAngularVelocityAngles(MPU6500* mpu, float timeDiff);
 uint8_t mpu6500CalibrateGyro(MPU6500* mpu);
 uint8_t mpu6500CalibrateAccel(MPU6500* mpu);
 uint8_t mpu6500WriteReg(uint8_t reg, uint8_t val);

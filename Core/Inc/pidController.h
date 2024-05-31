@@ -10,7 +10,7 @@
 
 #include "stdint.h"
 
-#define USecs2Secs		1000000.0
+#define US_TO_S	1000000.0
 
 typedef struct {
 
@@ -27,7 +27,7 @@ typedef struct {
   float output;
 
   float dt;
-  uint16_t lastUpdated;
+  uint32_t lastUpdated;
 
 } pidController;
 

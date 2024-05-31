@@ -41,7 +41,10 @@ extern "C" {
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
-
+enum RUN_MODES {
+  FLIGHT, // "safer" mode; use when propellers are in
+  TEST // "unsafe" mode; use when testing code without propellers
+};
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/

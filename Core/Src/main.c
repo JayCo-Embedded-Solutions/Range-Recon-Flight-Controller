@@ -28,6 +28,8 @@
 #include "bmp390.h"
 #include "movingAvgFilter.h"
 #include "filter.h"
+#include "simpleKalmanFilter.h"
+#include "arm_math.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -37,7 +39,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+// TOGGLE TEST/FLIGHT MODE HERE
+#define RUN_MODE TEST
+#define ANGLE_MAX 30
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -47,8 +51,6 @@
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
-
-IWDG_HandleTypeDef hiwdg;
 
 SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi2;
@@ -71,13 +73,13 @@ static void MX_TIM1_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_UART4_Init(void);
 static void MX_SPI2_Init(void);
-static void MX_IWDG_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_SPI3_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
-
+static void initializeIWDG();
+static void refreshIWDG();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -93,6 +95,12 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+
+  /**
+   * STUFF TODO:
+   * - Move higher level functions like the angle kalman filter to the flight controller file.
+   * - Make a flight controller struct? Would update all sensors on the flight controller and store the filtered angles/altitude, etc.
+   */
 
   /* USER CODE END 1 */
 
@@ -118,7 +126,6 @@ int main(void)
   MX_SPI1_Init();
   MX_UART4_Init();
   MX_SPI2_Init();
-//  MX_IWDG_Init();
   MX_I2C1_Init();
   MX_SPI3_Init();
   MX_USART2_UART_Init();
@@ -126,8 +133,6 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   HAL_TIM_Base_Start(&htim2);
-
-  hiwdg.Instance->PR = IWDG_PRESCALER_256; // set prescaler to max value (makes clock extremely slow) TODO this doesn't work
 
   uint8_t rxAddress[5] = {0xEE, 0xDD, 0xCC, 0xBB, 0xAA};
   uint8_t channelNum = 10;
@@ -140,11 +145,8 @@ int main(void)
   float desAngles[2] = {0, 0}; // desired angles
   float desAngleRates[3] = {0, 0, 0}; // for rate controller: desired angle rate (pitch, roll, yaw)
   int16_t ctrlSignals[3] = {0, 0, 0}; // value from 0-20, output from pid controller (represents adjustments in pitch/roll/yaw directions to hit desired value)
-  uint8_t rcThrottle = 50;
-  uint8_t motorThrottle[4] = {50, 50, 50, 50}; // motor output, changed based on pitch, roll, yaw change from controller
-
-  hiwdg.Instance->PR = IWDG_PRESCALER_4; // set prescalar back to initial value, effectively starting the iwdg again
-//  MX_IWDG_Init();
+  uint8_t rcThrottle = 50; // raw joystick value mapped to a desired motor output
+  uint8_t motorThrottle[4] = {50, 50, 50, 50}; // actual motor output, changed based on pitch, roll, yaw change from controller
 
   BMP390 bmp;
   MPU6500 mpu;
@@ -169,6 +171,10 @@ int main(void)
   }
 
   float altOffset = movingAvgFilterUpdate(&altFiltered, bmp.alt);
+  float prevAlt = 0;
+
+  float kalmanVerticalVelocity = 0;
+  float kalmanVerticalVelocityUncertainty = 0;
 
   // Wait for buffer to fill with normalized data
   for (int i = 0; i < altSamplesToAverage; i++) {
@@ -176,8 +182,14 @@ int main(void)
     movingAvgFilterUpdate(&altFiltered, bmp.alt - altOffset);
   }
 
-  char buf[1000];
+  simpleKalmanFilter altitudeFilter;
+  kalmanInit(&altitudeFilter, 0.1, 0.1, 0.1);
 
+  char buf[1000];
+  uint32_t prevTime = htim2.Instance->CNT;
+
+  // Start 125ms watchdog timer
+//  initializeIWDG();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -195,37 +207,69 @@ int main(void)
     // Read sensor values and update structs
     errors += bmp390Update(&bmp);
     errors += mpu6500Update(&mpu);
+    kalmanUpdateEstimate(&altitudeFilter, bmp.alt - altOffset);
 
-    sprintf(buf, "pitch:%f,roll:%f\r\n", mpu.pitch, mpu.roll);
+    float timeDiff = (float)(htim2.Instance->CNT - prevTime) / US_TO_S;
+
+    float baroVerticalVelocity = (altitudeFilter.curEstimate - prevAlt) / timeDiff;
+
+    // Use accelerometer values as predicted value, barometer values as measured
+    // assumes standard deviation of 0.1 m/s for both barometer and accelerometer (this might be wrong)
+
+    // Calculate uncertainty for each angle
+    kalmanVerticalVelocityUncertainty += (timeDiff * timeDiff) * 0.04; // variance for accelerometer
+
+    float verticalVelocityKalmanGain = kalmanVerticalVelocityUncertainty / (kalmanVerticalVelocityUncertainty + 0.01); // variance for barometer
+
+    // This uses the accelerometer values as the "predicted vertical velocity" and barometer values as the "measured vertical velocity" for the kalman equations
+    kalmanVerticalVelocity += verticalVelocityKalmanGain * (baroVerticalVelocity - kalmanVerticalVelocity);
+
+    kalmanVerticalVelocityUncertainty *= (1 - verticalVelocityKalmanGain);
+
+    prevTime = htim2.Instance->CNT;
+    prevAlt = altitudeFilter.curEstimate;
+
+//    sprintf(buf, "pitch:%f,roll:%f,motorThrottle0:%u,motorThrottle1:%u,motorThrottle2:%u,motorThrottle3:%u\r\n", mpu.pitch, mpu.roll, motorThrottle[0], motorThrottle[1], motorThrottle[2], motorThrottle[3]);
+//    sprintf(buf, "bmpAlt:%f, kalmanAlt:%f\r\n", bmp.alt - altOffset, altitudeFilter.curEstimate);
+    sprintf(buf, "accelVerticalVelocity:%f,baroVerticalVelocity:%f,kalmanVerticalVelocity:%f\r\n", mpu.verticalVelocity, baroVerticalVelocity, kalmanVerticalVelocity);
     HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
-    if(isDataAvailable(rxPipe)) {
-//      HAL_IWDG_Refresh(&hiwdg);
-      nRF24Receive(rxData);
-      uint32_t xVal = (rxData[0] << 24 | rxData[1] << 16 | rxData[2] << 8 | rxData[3]);
+    switch (RUN_MODE) {
+      case TEST: {
+        refreshIWDG();
+        rcThrottle = 50;
 
-      rcThrottle = mapPWM(xVal);
+        angleController(&mpu, desAngles, desAngleRates, ctrlSignals);
+        actuateMotors(motorThrottle, rcThrottle, ctrlSignals);
 
-      angleController(&mpu, desAngles, desAngleRates, ctrlSignals);
-      actuateMotors(motorThrottle, rcThrottle, ctrlSignals);
+        break;
+      }
 
-//      char buf[1000];
-//      sprintf(buf, " FR: %hu, FL: %hu, RR: %hu, RL: %hu \r\n",  motorThrottle[0], motorThrottle[1], motorThrottle[2], motorThrottle[3]);
-//      HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
-//
-//      sprintf(buf, "%0.4f, %0.4f, %0.4f \r\n", accelData[0], accelData[1], accelData[2]);
-//      sprintf(buf, "%0.1f, %0.1f, %0.1f \r\n", gyroData[0], gyroData[1], gyroData[2]);
-//      sprintf(buf, "%0.1f, %0.1f, %0.1f \r\n",  craftAngles[0], craftAngles[1], craftAngles[2]);
-//      sprintf(buf, "%0.1f, %0.1f \r\n",  craftAngles[0], craftAngles[1]);
-//
-//      if(craftAngles[0] > 30 || craftAngles[0] < -30) {
-//        setAllMotors(50);
-//        while(1) {}
-//      }
-//      if(craftAngles[1] > 30 || craftAngles[1] < -30) {
-//        setAllMotors(50);
-//        while(1) {}
-//      }
+      case FLIGHT: {
+        // Handle user input from remote controller
+        if(isDataAvailable(rxPipe)) {
+          refreshIWDG();
+
+          nRF24Receive(rxData);
+          uint32_t xVal = (rxData[0] << 24 | rxData[1] << 16 | rxData[2] << 8 | rxData[3]);
+          rcThrottle = mapPWM(xVal);
+
+          angleController(&mpu, desAngles, desAngleRates, ctrlSignals);
+          actuateMotors(motorThrottle, rcThrottle, ctrlSignals);
+
+          // Shut off all motors permanently if angle is too sharp
+          if(fabsf(mpu.pitch) > ANGLE_MAX || fabsf(mpu.roll) > ANGLE_MAX) {
+            setAllMotors(50);
+            while (1);
+          }
+        }
+
+        break;
+      }
+
+      default: {
+        break;
+      }
     }
   }
 
@@ -249,10 +293,9 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
   RCC_OscInitStruct.PLL.PLLM = 16;
@@ -311,34 +354,6 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
-
-}
-
-/**
-  * @brief IWDG Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_IWDG_Init(void)
-{
-
-  /* USER CODE BEGIN IWDG_Init 0 */
-
-  /* USER CODE END IWDG_Init 0 */
-
-  /* USER CODE BEGIN IWDG_Init 1 */
-
-  /* USER CODE END IWDG_Init 1 */
-  hiwdg.Instance = IWDG;
-  hiwdg.Init.Prescaler = IWDG_PRESCALER_4;
-  hiwdg.Init.Reload = 1000;
-  if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN IWDG_Init 2 */
-
-  /* USER CODE END IWDG_Init 2 */
 
 }
 
@@ -727,7 +742,36 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+/**
+ * I AM MANUALLY INITIALIZING THE IWDG HERE SO IT DOESN'T MESS THE PROGRAM UP WHEN THE CODE IS REGENERATED.
+ */
+static void initializeIWDG() {
+    // Enable the IWDG by writing 0x0000 CCCC in the IWDG key register (IWDG_KR)
+    IWDG->KR = 0x0000CCCC;
 
+    // Enable register access by writing 0x0000 5555 in the IWDG key register (IWDG_KR)
+    IWDG->KR = 0x00005555;
+
+    // Write the prescaler by programming the IWDG prescaler register (IWDG_PR) from 0 to 7
+    IWDG->PR = 0;
+
+    // Write the IWDG reload register (IWDG_RLR)
+    IWDG->RLR = 1000;
+
+    // Wait for the registers to be updated (IWDG_SR = 0x0000 0000)
+    while (IWDG->SR);
+
+    // Refresh the counter value with IWDG_RLR (IWDG_KR = 0x0000 AAAA)
+    IWDG->KR = 0x0000AAAA;
+}
+
+/**
+ * Restarts the counter for the IWDG.
+ * This function must be called in order for the IWDG to work properly.
+ */
+static void refreshIWDG() {
+  IWDG->KR = 0x0000AAAA;
+}
 /* USER CODE END 4 */
 
 /**

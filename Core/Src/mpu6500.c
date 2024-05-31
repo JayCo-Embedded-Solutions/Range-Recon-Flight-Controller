@@ -46,6 +46,7 @@ uint8_t mpu6500Init(MPU6500* mpu) {
   // Initialize struct fields to 0 to eliminate garbage values existing in the struct.
   mpu->roll = 0;
   mpu->pitch = 0;
+  mpu->verticalVelocity = 0;
   mpu->accelOffsetX = 0;
   mpu->accelOffsetY = 0;
   mpu->accelOffsetZ = 0;
@@ -65,8 +66,7 @@ uint8_t mpu6500Init(MPU6500* mpu) {
   mpu->rollUncertainty = MPU6500_INITIAL_ANGLE_VARIANCE;
   mpu->pitchUncertainty = MPU6500_INITIAL_ANGLE_VARIANCE;
   // Initialize the time to the current number of ticks instead of 0 (will be more accurate)
-  mpu->timeUpdatedGyro = htim2.Instance->CNT;
-  mpu->timeUpdatedKalman = htim2.Instance->CNT;
+  mpu->timeUpdated = htim2.Instance->CNT;
 
   // Calibrate the gyro to determine offset values
   errors += mpu6500CalibrateGyro(mpu);
@@ -88,11 +88,17 @@ uint8_t mpu6500Init(MPU6500* mpu) {
 uint8_t mpu6500Update(MPU6500* mpu) {
   uint8_t errors = 0;
 
+  uint32_t curTime = htim2.Instance->CNT;
+  float timeDiff = (float)(curTime - mpu->timeUpdated) / US_TO_S;
+
   errors += mpu6500UpdateAcceleration(mpu);
   mpu6500UpdateAccelerationAngles(mpu);
   errors += mpu6500UpdateAngularVelocity(mpu);
-  mpu6500UpdateAngularVelocityAngles(mpu);
-  mpu6500UpdateKalmanAngles(mpu);
+  mpu6500UpdateAngularVelocityAngles(mpu, timeDiff);
+  mpu6500UpdateKalmanAngles(mpu, timeDiff);
+  mpu6500UpdateVerticalVelocity(mpu, timeDiff);
+
+  mpu->timeUpdated = curTime;
 
   return errors;
 }
@@ -100,15 +106,12 @@ uint8_t mpu6500Update(MPU6500* mpu) {
 /**
  * Updates the pitch and roll values of the IMU by applying a kalman filter using the gyroscope and pitch angles.
  * NOTE: mpu6500UpdateAccelerationAngles() should be called prior to using this function.
+ * Units: Degrees.
  *
  * @param mpu: The address of the MPU6500 sensor struct.
+ * @param timeDiff: The change in time (in seconds) since the last call to this function.
  */
-void mpu6500UpdateKalmanAngles(MPU6500* mpu) {
-  uint32_t curTime = htim2.Instance->CNT;
-
-  // Get number of seconds since last kalman update
-  float timeDiff = (float)(curTime - mpu->timeUpdatedKalman) / 1000000;
-
+void mpu6500UpdateKalmanAngles(MPU6500* mpu, float timeDiff) {
   // Use gyroscope values as predicted value
   mpu->pitch += timeDiff * mpu->angularVelocityX;
   mpu->roll += timeDiff * mpu->angularVelocityY;
@@ -126,13 +129,29 @@ void mpu6500UpdateKalmanAngles(MPU6500* mpu) {
 
   mpu->pitchUncertainty *= (1 - pitchKalmanGain);
   mpu->rollUncertainty *= (1 - rollKalmanGain);
+}
 
-  mpu->timeUpdatedKalman = curTime;
+/**
+ * Updates the absolute vertical velocity (opposite to direction of gravity) based on the accelerometer readings.
+ * mpu6500UpdateAcceleration() and mpu6500UpdateKalmanAngles() should be called prior to using this function.
+ * Units: Meters per second.
+ *
+ * @param mpu: The address of the MPU sensor struct to be updated.
+ * @param timeDiff: The change in time (in seconds) since the last call to this function.
+ */
+void mpu6500UpdateVerticalVelocity(MPU6500* mpu, float timeDiff) {
+  float xComponent = -1*mpu->accelerationX * sinf(mpu->pitch * M_PI / 180);
+  float yComponent = mpu->accelerationY * sinf(mpu->roll * M_PI / 180) * cosf(mpu->pitch * M_PI / 180);
+  float zComponent = mpu->accelerationZ * cosf(mpu->roll * M_PI / 180) * cosf(mpu->pitch * M_PI / 180);
+
+  float verticalAcceleration = (xComponent + yComponent + zComponent - 1) * 9.81;
+
+  mpu->verticalVelocity += timeDiff * verticalAcceleration;
 }
 
 /**
  * Reads the MPU6500's accelerometer and updates the values in an MPU struct.
- * Units: g's (Force of gravity); 1g ~= 9.8 m/(s^2)
+ * Units: g's (Force of gravity); 1g ~= 9.81 m/(s^2)
  *
  * TODO: replace hard-coded 2048 value with value from config register
  *
@@ -227,18 +246,12 @@ void mpu6500UpdateAccelerationAngles(MPU6500* mpu) {
  * WARNING: Due to imperfections in the gyroscope readings, this function will accumulate error over time (known as gyroscope drift).
  *
  * @param mpu: The address of the MPU6500 sensor struct to be updated.
+ * @param timeDiff: The change in time (in seconds) since the last call to this function.
  */
-void mpu6500UpdateAngularVelocityAngles(MPU6500* mpu) {
-  uint32_t curTime = htim2.Instance->CNT;
-
-  // Get number of seconds since last update
-  float timeDiff = (float)(curTime - mpu->timeUpdatedGyro) / 1000000;
-
+void mpu6500UpdateAngularVelocityAngles(MPU6500* mpu, float timeDiff) {
   // Integrate angular velocity to get absolute angle
   mpu->angularVPitch += mpu->angularVelocityX * timeDiff;
   mpu->angularVRoll += mpu->angularVelocityY * timeDiff;
-
-  mpu->timeUpdatedGyro = curTime;
 }
 
 /**

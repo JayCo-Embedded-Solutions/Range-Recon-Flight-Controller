@@ -9,6 +9,7 @@
 #define INC_FLIGHTCONTROLLER_H_
 
 #include "mpu6500.h"
+#include "bmp390.h"
 #include "firFilter.h"
 #include "motorControl.h"
 #include "stdio.h"
@@ -17,7 +18,7 @@
 #include "math.h"
 #include "stm32f4xx_hal.h"
 
-#define RAD2DEG 		57.3
+#define RAD2DEG 		57.2957795131
 #define GYRO_Prescale 	100
 
 /* PID CONTROLLER VALUES */
@@ -32,7 +33,6 @@
 #define RATE_YAW_KP			0.03
 #define RATE_YAW_KI			0.0
 #define RATE_YAW_KD			0.0
-
 
 #define ANGLE_PITCH_KP		5
 #define ANGLE_PITCH_KI		0.0
@@ -54,6 +54,7 @@ void flightControllerInit();
 void rateController(MPU6500* mpu, float* desiredAngularRates, int16_t* controlSignals);
 void angleController(MPU6500* mpu, float* desiredAngles, float* desiredAngularRates, int16_t* controlSignals);
 void actuateMotors(uint8_t* currentMotorThrottle,uint8_t rcThrottle, int16_t* controlSignals);
+void getKalmanAltitude(MPU6500* mpu, BMP390* bmp, float bmpOffset, float* altitude, float* verticalVelocity, float* pVals, float timeDiff);
 uint8_t mapPWM(uint16_t joystickVal);
 
 #endif /* INC_FLIGHTCONTROLLER_H_ */

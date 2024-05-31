@@ -70,10 +70,9 @@ void actuateMotors(uint8_t* currentMotorThrottle, uint8_t rcThrottle, int16_t* c
 
 	// limit motor speeds to between 50 and 80
 	for(uint8_t i = 0; i < 4; i++) {
-		if(currentMotorThrottle[i] > 80) {
+		if (currentMotorThrottle[i] > 80) {
 			currentMotorThrottle[i] = 80;
-		}
-		else if(currentMotorThrottle[i] < 50) {
+		} else if (currentMotorThrottle[i] < 50) {
 			currentMotorThrottle[i] = 50;
 		}
 	}
@@ -82,6 +81,43 @@ void actuateMotors(uint8_t* currentMotorThrottle, uint8_t rcThrottle, int16_t* c
 	motorSetSpeed(frontLeftMotor, currentMotorThrottle[1]);
 	motorSetSpeed(rearRightMotor, currentMotorThrottle[2]);
 	motorSetSpeed(rearLeftMotor, currentMotorThrottle[3]);
+}
+
+/**
+ * TODO
+ */
+void getKalmanAltitude(MPU6500* mpu, BMP390* bmp, float bmpOffset, float* altitude, float* verticalVelocity, float* pVals, float timeDiff) {
+  float xComponent = -1*mpu->accelerationX * sinf(mpu->pitch * M_PI / 180);
+  float yComponent = mpu->accelerationY * sinf(mpu->roll * M_PI / 180) * cosf(mpu->pitch * M_PI / 180);
+  float zComponent = mpu->accelerationZ * cosf(mpu->roll * M_PI / 180) * cosf(mpu->pitch * M_PI / 180);
+
+  float verticalAcceleration = (xComponent + yComponent + zComponent - 1) * 9.81;
+
+  // S = F*S + G*Acc
+  *altitude = *altitude + *verticalVelocity * timeDiff + 0.5 * timeDiff * timeDiff * verticalAcceleration;
+  *verticalVelocity = *verticalVelocity + timeDiff * verticalAcceleration;
+
+  // P = F*P*F_T + Q
+  pVals[0] = pVals[0] + pVals[2] * timeDiff + (pVals[1] + pVals[3] * timeDiff) * timeDiff + 0.0025 * timeDiff * timeDiff * timeDiff * timeDiff;
+  pVals[1] = pVals[1] + pVals[3] * timeDiff + 0.005 * timeDiff * timeDiff * timeDiff;
+  pVals[2] = pVals[2] + pVals[3] * timeDiff + 0.005 * timeDiff * timeDiff * timeDiff;
+  pVals[3] = pVals[3] + timeDiff * timeDiff * 0.01;
+
+  // L = H*P*H_T + R
+  float temp = pVals[0] + 0.09;
+
+  // K = P*H_T*(L^-1)
+  float kalmanAltGain = pVals[0] / temp;
+  float kalmanVerticalVelocityGain = pVals[2] / temp;
+
+  // S = S + K*(M - H*S)
+  *altitude = *altitude + kalmanAltGain * (bmp->alt - bmpOffset - *altitude);
+  *verticalVelocity = *verticalVelocity + kalmanVerticalVelocityGain * (bmp->alt - bmpOffset - *altitude);
+
+  // P = (I - K*H)*P
+  pVals[0] = (1 - kalmanAltGain) * pVals[0];
+  pVals[1] = 0;
+  pVals[2] = -1 * kalmanVerticalVelocityGain * pVals[2];
 }
 
 /**
@@ -94,5 +130,5 @@ void actuateMotors(uint8_t* currentMotorThrottle, uint8_t rcThrottle, int16_t* c
  * @returns: The mapped value to send over PWM, which will range from 50-100.
  */
 uint8_t mapPWM(uint16_t joystickVal) {
-  return (joystickVal >= 2200) ? (50*joystickVal) / 1896 - 8 : 50;
+  return (joystickVal >= 2200) ? (50 * joystickVal) / 1896 - 8 : 50;
 }
