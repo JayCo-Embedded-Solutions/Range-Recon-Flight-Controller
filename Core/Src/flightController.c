@@ -14,6 +14,8 @@ pidController rateModeYawController;
 pidController angleModePitchController;
 pidController angleModeRollController;
 
+pidController verticalVelocityController;
+
 /**
  * Initializes all necessary elements of the flight controller (gyro update time, accelerometer filters, PID controllers)
  */
@@ -26,6 +28,9 @@ void flightControllerInit() {
 	// initialize PID controllers for the angle mode controller
 	pidControllerInit(&angleModePitchController, ANGLE_PITCH_KP, ANGLE_PITCH_KI, ANGLE_PITCH_KD);
 	pidControllerInit(&angleModeRollController, ANGLE_ROLL_KP, ANGLE_ROLL_KI, ANGLE_ROLL_KD);
+
+	// initialize vertical velocity PID controller
+	pidControllerInit(&verticalVelocityController, VERTICAL_VELOCITY_KP, VERTICAL_VELOCITY_KI, VERTICAL_VELOCITY_KD);
 }
 
 /**
@@ -56,17 +61,25 @@ void angleController(MPU6500* mpu, float* desiredAngles, float* desiredAngularRa
 }
 
 /**
+ * TODO
+ */
+void updateVerticalVelocityControl(float measuredVerticalVelocity, float desiredVerticalVelocity, int16_t* verticalVelocityMotorAdjustment) {
+  *verticalVelocityMotorAdjustment = pidUpdateOutput(&verticalVelocityController, measuredVerticalVelocity, desiredVerticalVelocity);
+}
+
+/**
  * Actuates the motors based on the controller output values for the pitch, roll, and yaw directions
  *
  * @param motorThrottle: pointer to a 4-element array containing the current speeds of the motors
  * @param rcThrottle: pointer to a 4-element array containing the throttle speed from the remote controller
  * @param controlSignals: pointer to a 3-element array containing controller compensation values for the pitch, roll, yaw directions
+ * @param verticalVelocityMotorAdjustment: TODO
  */
-void actuateMotors(uint8_t* currentMotorThrottle, uint8_t rcThrottle, int16_t* controlSignals) {
-	currentMotorThrottle[0] = rcThrottle - controlSignals[0] + controlSignals[1] + controlSignals[2];
-	currentMotorThrottle[1] = rcThrottle - controlSignals[0] - controlSignals[1] - controlSignals[2];
-	currentMotorThrottle[2] = rcThrottle + controlSignals[0] + controlSignals[1] - controlSignals[2];
-	currentMotorThrottle[3] = rcThrottle + controlSignals[0] - controlSignals[1] + controlSignals[2];
+void actuateMotors(uint8_t* currentMotorThrottle, uint8_t rcThrottle, int16_t* controlSignals, int16_t verticalVelocityMotorAdjustment) {
+	currentMotorThrottle[0] = rcThrottle - controlSignals[0] + controlSignals[1] + controlSignals[2] + verticalVelocityMotorAdjustment;
+	currentMotorThrottle[1] = rcThrottle - controlSignals[0] - controlSignals[1] - controlSignals[2] + verticalVelocityMotorAdjustment;
+	currentMotorThrottle[2] = rcThrottle + controlSignals[0] + controlSignals[1] - controlSignals[2] + verticalVelocityMotorAdjustment;
+	currentMotorThrottle[3] = rcThrottle + controlSignals[0] - controlSignals[1] + controlSignals[2] + verticalVelocityMotorAdjustment;
 
 	// limit motor speeds to between 50 and 80
 	for(uint8_t i = 0; i < 4; i++) {
@@ -84,7 +97,7 @@ void actuateMotors(uint8_t* currentMotorThrottle, uint8_t rcThrottle, int16_t* c
 }
 
 /**
- * TODO
+ * TODO this doesn't work, maybe remove
  */
 void getKalmanAltitude(MPU6500* mpu, BMP390* bmp, float bmpOffset, float* altitude, float* verticalVelocity, float* pVals, float timeDiff) {
   float xComponent = -1*mpu->accelerationX * sinf(mpu->pitch * M_PI / 180);

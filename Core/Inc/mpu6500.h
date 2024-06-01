@@ -157,6 +157,7 @@ typedef struct mpu6500 {
 
   // Velocity from accelerometer in the absolute vertical direction
   float verticalVelocity;
+  float verticalAcceleration;
 
   // Kalman uncertainty values
   float rollUncertainty;

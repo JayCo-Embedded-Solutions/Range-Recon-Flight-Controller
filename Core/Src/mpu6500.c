@@ -47,6 +47,7 @@ uint8_t mpu6500Init(MPU6500* mpu) {
   mpu->roll = 0;
   mpu->pitch = 0;
   mpu->verticalVelocity = 0;
+  mpu->verticalAcceleration = 0;
   mpu->accelOffsetX = 0;
   mpu->accelOffsetY = 0;
   mpu->accelOffsetZ = 0;
@@ -144,9 +145,9 @@ void mpu6500UpdateVerticalVelocity(MPU6500* mpu, float timeDiff) {
   float yComponent = mpu->accelerationY * sinf(mpu->roll * M_PI / 180) * cosf(mpu->pitch * M_PI / 180);
   float zComponent = mpu->accelerationZ * cosf(mpu->roll * M_PI / 180) * cosf(mpu->pitch * M_PI / 180);
 
-  float verticalAcceleration = (xComponent + yComponent + zComponent - 1) * 9.81;
+  mpu->verticalAcceleration = (xComponent + yComponent + zComponent - 1) * 9.81;
 
-  mpu->verticalVelocity += timeDiff * verticalAcceleration;
+  mpu->verticalVelocity += timeDiff * mpu->verticalAcceleration;
 }
 
 /**

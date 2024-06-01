@@ -80,11 +80,50 @@ static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 static void initializeIWDG();
 static void refreshIWDG();
+static void applyKalman();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+static BMP390 bmp;
+static MPU6500 mpu;
+static float altOffset;
 
+/* MATRIX STUFF */
+// 0.0202 is the approximate time in seconds for each loop
+float32_t matrixF[2][2] = {{1, 0.0202},
+                           {0, 1}};
+float32_t matrixP[2][2] = {{0, 0},
+                           {0, 0}};
+float32_t matrixS[2][1] = {{0},
+                           {0}};
+float32_t matrixI[2][2] = {{1, 0},
+                           {0, 1}};
+float32_t matrixK[2][1] = {0};
+float32_t matrixL[1][1] = {0};
+float32_t matrixG[2][1] = {{0.5*0.0202*0.0202},
+                           {0.0202}};
+float32_t matrixQ[2][2] = {{0.000000000416241604, 0.00000004121204},
+                           {0.00000004121204, 0.0000040804}}; // G * G_T * 0.01
+float32_t matrixH[1][2] = {{1, 0}};
+float32_t matrixR[1][1] = {{0.09}};
+float32_t matrixM[1][1] = {0};
+
+arm_matrix_instance_f32 matrixFInstance;
+arm_matrix_instance_f32 matrixPInstance;
+arm_matrix_instance_f32 matrixSInstance;
+arm_matrix_instance_f32 matrixIInstance;
+arm_matrix_instance_f32 matrixKInstance;
+arm_matrix_instance_f32 matrixLInstance;
+arm_matrix_instance_f32 matrixGInstance;
+arm_matrix_instance_f32 matrixQInstance;
+arm_matrix_instance_f32 matrixHInstance;
+arm_matrix_instance_f32 matrixRInstance;
+arm_matrix_instance_f32 matrixMInstance;
+
+float32_t kalmanAltitude = 0;
+float32_t kalmanVerticalVelocity = 0;
+/****************/
 /* USER CODE END 0 */
 
 /**
@@ -101,6 +140,20 @@ int main(void)
    * - Move higher level functions like the angle kalman filter to the flight controller file.
    * - Make a flight controller struct? Would update all sensors on the flight controller and store the filtered angles/altitude, etc.
    */
+
+  /* MORE MATRIX STUFF TODO REMOVE*/
+  arm_mat_init_f32(&matrixFInstance, 2, 2, &matrixF[0][0]);
+  arm_mat_init_f32(&matrixPInstance, 2, 2, &matrixP[0][0]);
+  arm_mat_init_f32(&matrixSInstance, 2, 1, &matrixS[0][0]);
+  arm_mat_init_f32(&matrixIInstance, 2, 2, &matrixI[0][0]);
+  arm_mat_init_f32(&matrixKInstance, 2, 1, &matrixK[0][0]);
+  arm_mat_init_f32(&matrixLInstance, 1, 1, &matrixL[0][0]);
+  arm_mat_init_f32(&matrixGInstance, 2, 1, &matrixG[0][0]);
+  arm_mat_init_f32(&matrixQInstance, 2, 2, &matrixQ[0][0]);
+  arm_mat_init_f32(&matrixHInstance, 1, 2, &matrixH[0][0]);
+  arm_mat_init_f32(&matrixRInstance, 1, 1, &matrixR[0][0]);
+  arm_mat_init_f32(&matrixMInstance, 1, 1, &matrixM[0][0]);
+  /********************************/
 
   /* USER CODE END 1 */
 
@@ -147,9 +200,8 @@ int main(void)
   int16_t ctrlSignals[3] = {0, 0, 0}; // value from 0-20, output from pid controller (represents adjustments in pitch/roll/yaw directions to hit desired value)
   uint8_t rcThrottle = 50; // raw joystick value mapped to a desired motor output
   uint8_t motorThrottle[4] = {50, 50, 50, 50}; // actual motor output, changed based on pitch, roll, yaw change from controller
-
-  BMP390 bmp;
-  MPU6500 mpu;
+  int16_t verticalVelocityMotorAdjustment = 0;
+  float desVertVelocity = 1;
 
   unsigned int errors = 0;
 
@@ -170,11 +222,7 @@ int main(void)
     movingAvgFilterUpdate(&altFiltered, bmp.alt);
   }
 
-  float altOffset = movingAvgFilterUpdate(&altFiltered, bmp.alt);
-  float prevAlt = 0;
-
-  float kalmanVerticalVelocity = 0;
-  float kalmanVerticalVelocityUncertainty = 0;
+  altOffset = movingAvgFilterUpdate(&altFiltered, bmp.alt);
 
   // Wait for buffer to fill with normalized data
   for (int i = 0; i < altSamplesToAverage; i++) {
@@ -186,7 +234,9 @@ int main(void)
   kalmanInit(&altitudeFilter, 0.1, 0.1, 0.1);
 
   char buf[1000];
+
   uint32_t prevTime = htim2.Instance->CNT;
+  float prevBaroAlt = 0;
 
   // Start 125ms watchdog timer
 //  initializeIWDG();
@@ -209,29 +259,19 @@ int main(void)
     errors += mpu6500Update(&mpu);
     kalmanUpdateEstimate(&altitudeFilter, bmp.alt - altOffset);
 
-    float timeDiff = (float)(htim2.Instance->CNT - prevTime) / US_TO_S;
+    uint32_t curTime = htim2.Instance->CNT;
+    float timeDiff = (float)(curTime - prevTime) / US_TO_S;
+    float baroVerticalVelocity = (altitudeFilter.curEstimate - prevBaroAlt) / timeDiff;
+    prevTime = curTime;
+    prevBaroAlt = altitudeFilter.curEstimate;
 
-    float baroVerticalVelocity = (altitudeFilter.curEstimate - prevAlt) / timeDiff;
-
-    // Use accelerometer values as predicted value, barometer values as measured
-    // assumes standard deviation of 0.1 m/s for both barometer and accelerometer (this might be wrong)
-
-    // Calculate uncertainty for each angle
-    kalmanVerticalVelocityUncertainty += (timeDiff * timeDiff) * 0.04; // variance for accelerometer
-
-    float verticalVelocityKalmanGain = kalmanVerticalVelocityUncertainty / (kalmanVerticalVelocityUncertainty + 0.01); // variance for barometer
-
-    // This uses the accelerometer values as the "predicted vertical velocity" and barometer values as the "measured vertical velocity" for the kalman equations
-    kalmanVerticalVelocity += verticalVelocityKalmanGain * (baroVerticalVelocity - kalmanVerticalVelocity);
-
-    kalmanVerticalVelocityUncertainty *= (1 - verticalVelocityKalmanGain);
-
-    prevTime = htim2.Instance->CNT;
-    prevAlt = altitudeFilter.curEstimate;
+    applyKalman();
+    sprintf(buf, "kalmanVerticalVelocity:%f\r\n", kalmanVerticalVelocity);
 
 //    sprintf(buf, "pitch:%f,roll:%f,motorThrottle0:%u,motorThrottle1:%u,motorThrottle2:%u,motorThrottle3:%u\r\n", mpu.pitch, mpu.roll, motorThrottle[0], motorThrottle[1], motorThrottle[2], motorThrottle[3]);
 //    sprintf(buf, "bmpAlt:%f, kalmanAlt:%f\r\n", bmp.alt - altOffset, altitudeFilter.curEstimate);
-    sprintf(buf, "accelVerticalVelocity:%f,baroVerticalVelocity:%f,kalmanVerticalVelocity:%f\r\n", mpu.verticalVelocity, baroVerticalVelocity, kalmanVerticalVelocity);
+//    sprintf(buf, "baroVerticalVelocity:%f,motorThrottle0:%u,motorThrottle1:%u,motorThrottle2:%u,motorThrottle3:%u\r\n", baroVerticalVelocity, motorThrottle[0], motorThrottle[1], motorThrottle[2], motorThrottle[3]);
+//    sprintf(buf, "timeDiff:%f\r\n", timeDiff);
     HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
     switch (RUN_MODE) {
@@ -240,7 +280,8 @@ int main(void)
         rcThrottle = 50;
 
         angleController(&mpu, desAngles, desAngleRates, ctrlSignals);
-        actuateMotors(motorThrottle, rcThrottle, ctrlSignals);
+        updateVerticalVelocityControl(baroVerticalVelocity, desVertVelocity, &verticalVelocityMotorAdjustment);
+        actuateMotors(motorThrottle, rcThrottle, ctrlSignals, verticalVelocityMotorAdjustment);
 
         break;
       }
@@ -254,8 +295,8 @@ int main(void)
           uint32_t xVal = (rxData[0] << 24 | rxData[1] << 16 | rxData[2] << 8 | rxData[3]);
           rcThrottle = mapPWM(xVal);
 
-          angleController(&mpu, desAngles, desAngleRates, ctrlSignals);
-          actuateMotors(motorThrottle, rcThrottle, ctrlSignals);
+//          angleController(&mpu, desAngles, desAngleRates, ctrlSignals);
+//          actuateMotors(motorThrottle, rcThrottle, ctrlSignals);
 
           // Shut off all motors permanently if angle is too sharp
           if(fabsf(mpu.pitch) > ANGLE_MAX || fabsf(mpu.roll) > ANGLE_MAX) {
@@ -771,6 +812,112 @@ static void initializeIWDG() {
  */
 static void refreshIWDG() {
   IWDG->KR = 0x0000AAAA;
+}
+
+/**
+ * god help us
+ *
+ * TODO
+ */
+static void applyKalman() {
+  // S = F*S + G*Acc
+  float32_t matrixGAcc[2][1];
+  arm_matrix_instance_f32 matrixGAccInstance;
+  arm_mat_init_f32(&matrixGAccInstance, 2, 1, &matrixGAcc[0][0]);
+  arm_mat_scale_f32(&matrixGInstance, mpu.verticalAcceleration, &matrixGAccInstance); // G*Acc
+
+  float32_t matrixFS[2][1];
+  arm_matrix_instance_f32 matrixFSInstance;
+  arm_mat_init_f32(&matrixFSInstance, 2, 1, &matrixFS[0][0]);
+  arm_mat_mult_f32(&matrixFInstance, &matrixSInstance, &matrixFSInstance); // F*S
+
+  arm_mat_add_f32(&matrixFSInstance, &matrixGAccInstance, &matrixSInstance); // F*S + G*Acc
+
+  // P = F*P*F_T + Q
+  float32_t matrixFP[2][2];
+  arm_matrix_instance_f32 matrixFPInstance;
+  arm_mat_init_f32(&matrixFPInstance, 2, 2, &matrixFP[0][0]);
+  arm_mat_mult_f32(&matrixFInstance, &matrixPInstance, &matrixFPInstance); // F*P
+
+  float32_t matrixF_T[2][2];
+  arm_matrix_instance_f32 matrixF_TInstance;
+  arm_mat_init_f32(&matrixF_TInstance, 2, 2, &matrixF_T[0][0]);
+  arm_mat_trans_f32(&matrixFInstance, &matrixF_TInstance); // F_T
+
+  float32_t matrixFPF_T[2][2];
+  arm_matrix_instance_f32 matrixFPF_TInstance;
+  arm_mat_init_f32(&matrixFPF_TInstance, 2, 2, &matrixFPF_T[0][0]);
+  arm_mat_mult_f32(&matrixFPInstance, &matrixF_TInstance, &matrixFPF_TInstance); // F*P*F_T
+
+  arm_mat_add_f32(&matrixFPF_TInstance, &matrixQInstance, &matrixPInstance); // F*P*F_T + Q
+
+  // L = H*P*H_T + R;
+  float32_t matrixHP[1][2];
+  arm_matrix_instance_f32 matrixHPInstance;
+  arm_mat_init_f32(&matrixHPInstance, 1, 2, &matrixHP[0][0]);
+  arm_mat_mult_f32(&matrixHInstance, &matrixPInstance, &matrixHPInstance); // H*P
+
+  float32_t matrixH_T[2][1];
+  arm_matrix_instance_f32 matrixH_TInstance;
+  arm_mat_init_f32(&matrixH_TInstance, 2, 1, &matrixH_T[0][0]);
+  arm_mat_trans_f32(&matrixHInstance, &matrixH_TInstance); // H_T
+
+  float32_t matrixHPH_T[1][1];
+  arm_matrix_instance_f32 matrixHPH_TInstance;
+  arm_mat_init_f32(&matrixHPH_TInstance, 1, 1, &matrixHPH_T[0][0]);
+  arm_mat_mult_f32(&matrixHPInstance, &matrixH_TInstance, &matrixHPH_TInstance); // H*P*H_T
+
+  arm_mat_add_f32(&matrixHPH_TInstance, &matrixRInstance, &matrixLInstance); // H*P*H_T + R
+
+  // K = P*H_T*(L^-1)
+  float32_t matrixPH_T[2][1];
+  arm_matrix_instance_f32 matrixPH_TInstance;
+  arm_mat_init_f32(&matrixPH_TInstance, 2, 1, &matrixPH_T[0][0]);
+  arm_mat_mult_f32(&matrixPInstance, &matrixH_TInstance, &matrixPH_TInstance); // P*H_T
+
+  float32_t matrixLinv[1][1];
+  arm_matrix_instance_f32 matrixLinvInstance;
+  arm_mat_init_f32(&matrixLinvInstance, 1, 1, &matrixLinv[0][0]);
+  arm_mat_inverse_f32(&matrixLInstance, &matrixLinvInstance); // L^-1
+
+  arm_mat_mult_f32(&matrixPH_TInstance, &matrixLinvInstance, &matrixKInstance); // P*H_T*(L^-1)
+
+  matrixMInstance.pData[0] = bmp.alt - altOffset;
+
+  // S = S + K*(M - H*S)
+  float32_t matrixHS[1][1];
+  arm_matrix_instance_f32 matrixHSInstance;
+  arm_mat_init_f32(&matrixHSInstance, 1, 1, &matrixHS[0][0]);
+  arm_mat_mult_f32(&matrixHInstance, &matrixSInstance, &matrixHSInstance); // H*S
+
+  float32_t matrixMsubHS[1][1];
+  arm_matrix_instance_f32 matrixMsubHSInstance;
+  arm_mat_init_f32(&matrixMsubHSInstance, 1, 1, &matrixMsubHS[0][0]);
+  arm_mat_sub_f32(&matrixMInstance, &matrixHSInstance, &matrixMsubHSInstance); // M - H*S
+
+  float32_t matrixKMsubHS[1][1];
+  arm_matrix_instance_f32 matrixKMsubHSInstance;
+  arm_mat_init_f32(&matrixKMsubHSInstance, 1, 1, &matrixKMsubHS[0][0]);
+  arm_mat_mult_f32(&matrixKInstance, &matrixMsubHSInstance, &matrixKMsubHSInstance); // K*(M - H*S)
+
+  arm_mat_add_f32(&matrixSInstance, &matrixKMsubHSInstance, &matrixSInstance); // S + K*(M - H*S)
+
+  // Update output values
+  kalmanAltitude = matrixSInstance.pData[0]; // element (0,0)
+  kalmanVerticalVelocity = matrixSInstance.pData[2]; // element (1,0)
+
+  // P = (I - K*H)*P
+  float32_t matrixKH[2][2];
+  arm_matrix_instance_f32 matrixKHInstance;
+  arm_mat_init_f32(&matrixKHInstance, 2, 2, &matrixKH[0][0]);
+  arm_mat_mult_f32(&matrixKInstance, &matrixHInstance, &matrixKHInstance); // K*H
+
+  float32_t matrixIsubKH[2][2];
+  arm_matrix_instance_f32 matrixIsubKHInstance;
+  arm_mat_init_f32(&matrixIsubKHInstance, 2, 2, &matrixIsubKH[0][0]);
+  arm_mat_sub_f32(&matrixIInstance, &matrixKHInstance, &matrixIsubKHInstance); // I - K*H
+
+  arm_mat_mult_f32(&matrixIsubKHInstance, &matrixPInstance, &matrixPInstance); // (I - K*H)*P
 }
 /* USER CODE END 4 */
 

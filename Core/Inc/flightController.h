@@ -42,6 +42,10 @@
 #define ANGLE_ROLL_KI		0.0
 #define ANGLE_ROLL_KD		0.0
 
+#define VERTICAL_VELOCITY_KP  200
+#define VERTICAL_VELOCITY_KI  0.0
+#define VERTICAL_VELOCITY_KD  0.0
+
 // rate mode and angle mode PID controllers
 extern pidController rateModePitchController;
 extern pidController rateModeRollController;
@@ -53,7 +57,8 @@ extern pidController angleModeRollController;
 void flightControllerInit();
 void rateController(MPU6500* mpu, float* desiredAngularRates, int16_t* controlSignals);
 void angleController(MPU6500* mpu, float* desiredAngles, float* desiredAngularRates, int16_t* controlSignals);
-void actuateMotors(uint8_t* currentMotorThrottle,uint8_t rcThrottle, int16_t* controlSignals);
+void actuateMotors(uint8_t* currentMotorThrottle, uint8_t rcThrottle, int16_t* controlSignals, int16_t verticalVelocityMotorAdjustment);
+void updateVerticalVelocityControl(float measuredVerticalVelocity, float desiredVerticalVelocity, int16_t* verticalVelocityMotorAdjustment);
 void getKalmanAltitude(MPU6500* mpu, BMP390* bmp, float bmpOffset, float* altitude, float* verticalVelocity, float* pVals, float timeDiff);
 uint8_t mapPWM(uint16_t joystickVal);
 
