@@ -203,7 +203,7 @@ int main(void)
   uint8_t rcThrottle = 50; // raw joystick value mapped to a desired motor output
   uint8_t motorThrottle[4] = {50, 50, 50, 50}; // actual motor output, changed based on pitch, roll, yaw change from controller
   int16_t verticalVelocityMotorAdjustment = 0;
-  float desVertVelocity = 1;
+  float desVertVelocity = 0.0;
 
   uint32_t secondCounter = htim2.Instance->CNT;
   float accelVertVelocityOffset = 0;
@@ -228,6 +228,8 @@ int main(void)
 
   sprintf(buf, "BMP390 Initialized!\r\n");
   HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
+
+  float baroVVFiltered = 0;
 
   // TODO put this stuff into a function
   // Fill altitude buffer before calculating offset
@@ -256,8 +258,24 @@ int main(void)
   sprintf(buf, "Filters applied, starting loop...\r\n");
   HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
+  // warm up vertical velocity filter
+  for (int i = 0; i < altSamplesToAverage; i++) {
+    errors += bmp390Update(&bmp);
+    errors += mpu6500Update(&mpu);
+    kalmanUpdateEstimate(&altitudeFilter, bmp.alt - altOffset);
+
+    uint32_t curTime = htim2.Instance->CNT;
+    float timeDiff = (float)(curTime - prevTime) / US_TO_S;
+    float baroVerticalVelocity = (altitudeFilter.curEstimate - prevBaroAlt) / timeDiff;
+    baroVVFiltered = movingAvgFilterUpdate(&baroVVAvg, baroVerticalVelocity);
+
+    prevTime = curTime;
+    prevBaroAlt = altitudeFilter.curEstimate;
+  }
+
+
   // Start 125ms watchdog timer
-//  initializeIWDG();
+  initializeIWDG();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -280,7 +298,7 @@ int main(void)
     uint32_t curTime = htim2.Instance->CNT;
     float timeDiff = (float)(curTime - prevTime) / US_TO_S;
     float baroVerticalVelocity = (altitudeFilter.curEstimate - prevBaroAlt) / timeDiff;
-    float baroVVFiltered = movingAvgFilterUpdate(&baroVVAvg, baroVerticalVelocity);
+    baroVVFiltered = movingAvgFilterUpdate(&baroVVAvg, baroVerticalVelocity);
 
     prevTime = curTime;
     prevBaroAlt = altitudeFilter.curEstimate;
@@ -291,7 +309,9 @@ int main(void)
       secondCounter = htim2.Instance->CNT; // reset counter
     }
 
-    sprintf(buf, "baroVerticalVelocity:%f,accelVerticalVelocity:%f,calibratedVerticalVelocity:%f\r\n", baroVVFiltered, mpu.verticalVelocity, mpu.verticalVelocity - accelVertVelocityOffset);
+//    sprintf(buf, "baroVerticalVelocity:%f,accelVerticalVelocity:%f,calibratedVerticalVelocity:%f\r\n", baroVVFiltered, mpu.verticalVelocity, mpu.verticalVelocity - accelVertVelocityOffset);
+//    sprintf(buf, "verticalVelocityMotorAdjustment: %d\r\n", verticalVelocityMotorAdjustment);
+    sprintf(buf, "motor1:%d\r\n", motorThrottle[0]);
     HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
     switch (RUN_MODE) {
@@ -300,7 +320,7 @@ int main(void)
         rcThrottle = 50;
 
         angleController(&mpu, desAngles, desAngleRates, ctrlSignals);
-        updateVerticalVelocityControl(baroVerticalVelocity, desVertVelocity, &verticalVelocityMotorAdjustment);
+        updateVerticalVelocityControl(mpu.verticalVelocity - accelVertVelocityOffset, desVertVelocity, &verticalVelocityMotorAdjustment);
         actuateMotors(motorThrottle, rcThrottle, ctrlSignals, verticalVelocityMotorAdjustment);
 
         break;

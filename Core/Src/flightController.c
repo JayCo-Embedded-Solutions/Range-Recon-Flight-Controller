@@ -62,9 +62,11 @@ void angleController(MPU6500* mpu, float* desiredAngles, float* desiredAngularRa
 
 /**
  * TODO
+ *
+ * NOTE: Have to multiply by -1 because the pid controller was built with decreasing the motor speed in mind (for angle control).
  */
 void updateVerticalVelocityControl(float measuredVerticalVelocity, float desiredVerticalVelocity, int16_t* verticalVelocityMotorAdjustment) {
-  *verticalVelocityMotorAdjustment = pidUpdateOutput(&verticalVelocityController, measuredVerticalVelocity, desiredVerticalVelocity);
+  *verticalVelocityMotorAdjustment = -1 * pidUpdateOutput(&verticalVelocityController, measuredVerticalVelocity, desiredVerticalVelocity);
 }
 
 /**
