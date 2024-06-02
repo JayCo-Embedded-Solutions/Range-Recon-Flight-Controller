@@ -89,6 +89,8 @@ static BMP390 bmp;
 static MPU6500 mpu;
 static float altOffset;
 
+static char buf[1000]; // buffer for printing chars
+
 /* MATRIX STUFF */
 // 0.0202 is the approximate time in seconds for each loop
 float32_t matrixF[2][2] = {{1, 0.0202},
@@ -203,17 +205,29 @@ int main(void)
   int16_t verticalVelocityMotorAdjustment = 0;
   float desVertVelocity = 1;
 
+  uint32_t secondCounter = htim2.Instance->CNT;
+  float accelVertVelocityOffset = 0;
+
   unsigned int errors = 0;
 
-  const uint8_t altSamplesToAverage = 25;
+  const uint8_t altSamplesToAverage = 100;
+
+  sprintf(buf, "Initializing sensors...\r\n");
+  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
   errors += mpu6500Init(&mpu);
   flightControllerInit();
   initializeMotors();
 
+  sprintf(buf, "MPU6500 initialized!\r\n");
+  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
+
   errors += bmp390Init(&bmp);
   movingAvgFilter altFiltered;
   movingAvgFilterInit(&altFiltered, altSamplesToAverage);
+
+  sprintf(buf, "BMP390 Initialized!\r\n");
+  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
   // TODO put this stuff into a function
   // Fill altitude buffer before calculating offset
@@ -230,13 +244,17 @@ int main(void)
     movingAvgFilterUpdate(&altFiltered, bmp.alt - altOffset);
   }
 
+  movingAvgFilter baroVVAvg;
+  movingAvgFilterInit(&baroVVAvg, altSamplesToAverage);
+
   simpleKalmanFilter altitudeFilter;
   kalmanInit(&altitudeFilter, 0.1, 0.1, 0.1);
 
-  char buf[1000];
-
   uint32_t prevTime = htim2.Instance->CNT;
   float prevBaroAlt = 0;
+
+  sprintf(buf, "Filters applied, starting loop...\r\n");
+  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
   // Start 125ms watchdog timer
 //  initializeIWDG();
@@ -262,16 +280,18 @@ int main(void)
     uint32_t curTime = htim2.Instance->CNT;
     float timeDiff = (float)(curTime - prevTime) / US_TO_S;
     float baroVerticalVelocity = (altitudeFilter.curEstimate - prevBaroAlt) / timeDiff;
+    float baroVVFiltered = movingAvgFilterUpdate(&baroVVAvg, baroVerticalVelocity);
+
     prevTime = curTime;
     prevBaroAlt = altitudeFilter.curEstimate;
 
-    applyKalman();
-    sprintf(buf, "kalmanVerticalVelocity:%f\r\n", kalmanVerticalVelocity);
+    // every second, set the current vertical velocity to what the average barometer reading is
+    if (htim2.Instance->CNT - secondCounter > 1000000) {
+      accelVertVelocityOffset = (mpu.verticalVelocity - baroVVFiltered);
+      secondCounter = htim2.Instance->CNT; // reset counter
+    }
 
-//    sprintf(buf, "pitch:%f,roll:%f,motorThrottle0:%u,motorThrottle1:%u,motorThrottle2:%u,motorThrottle3:%u\r\n", mpu.pitch, mpu.roll, motorThrottle[0], motorThrottle[1], motorThrottle[2], motorThrottle[3]);
-//    sprintf(buf, "bmpAlt:%f, kalmanAlt:%f\r\n", bmp.alt - altOffset, altitudeFilter.curEstimate);
-//    sprintf(buf, "baroVerticalVelocity:%f,motorThrottle0:%u,motorThrottle1:%u,motorThrottle2:%u,motorThrottle3:%u\r\n", baroVerticalVelocity, motorThrottle[0], motorThrottle[1], motorThrottle[2], motorThrottle[3]);
-//    sprintf(buf, "timeDiff:%f\r\n", timeDiff);
+    sprintf(buf, "baroVerticalVelocity:%f,accelVerticalVelocity:%f,calibratedVerticalVelocity:%f\r\n", baroVVFiltered, mpu.verticalVelocity, mpu.verticalVelocity - accelVertVelocityOffset);
     HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
     switch (RUN_MODE) {
