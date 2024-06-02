@@ -40,7 +40,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 // TOGGLE TEST/FLIGHT MODE HERE
-#define RUN_MODE TEST
+#define RUN_MODE FLIGHT
 #define ANGLE_MAX 30
 /* USER CODE END PD */
 
@@ -199,37 +199,35 @@ int main(void)
 
   float desAngles[2] = {0, 0}; // desired angles
   float desAngleRates[3] = {0, 0, 0}; // for rate controller: desired angle rate (pitch, roll, yaw)
-  int16_t ctrlSignals[3] = {0, 0, 0}; // value from 0-20, output from pid controller (represents adjustments in pitch/roll/yaw directions to hit desired value)
-  uint8_t rcThrottle = 50; // raw joystick value mapped to a desired motor output
-  uint8_t motorThrottle[4] = {50, 50, 50, 50}; // actual motor output, changed based on pitch, roll, yaw change from controller
-  int16_t verticalVelocityMotorAdjustment = 0;
-  float desVertVelocity = 0.0;
-
-  uint32_t secondCounter = htim2.Instance->CNT;
-  float accelVertVelocityOffset = 0;
+  float ctrlSignals[3] = {0, 0, 0}; // value from 0-20, output from pid controller (represents adjustments in pitch/roll/yaw directions to hit desired value)
+  float rcThrottle = 0; // raw joystick value mapped to a desired vertical velocity
+  float motorThrottle[4] = {50, 50, 50, 50}; // actual motor output, changed based on pitch, roll, yaw change from controller
+  float verticalVelocityMotorAdjustment = 0;
+  float vvAccumulator = 0;
 
   unsigned int errors = 0;
 
   const uint8_t altSamplesToAverage = 100;
 
-  sprintf(buf, "Initializing sensors...\r\n");
-  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
+//  sprintf(buf, "Initializing sensors...\r\n");
+//  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
   errors += mpu6500Init(&mpu);
   flightControllerInit();
   initializeMotors();
 
-  sprintf(buf, "MPU6500 initialized!\r\n");
-  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
+//  sprintf(buf, "MPU6500 initialized!\r\n");
+//  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
   errors += bmp390Init(&bmp);
   movingAvgFilter altFiltered;
   movingAvgFilterInit(&altFiltered, altSamplesToAverage);
 
-  sprintf(buf, "BMP390 Initialized!\r\n");
-  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
+//  sprintf(buf, "BMP390 Initialized!\r\n");
+//  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
-  float baroVVFiltered = 0;
+  // LPF
+  BWLowPass* baroVVLPF = create_bw_low_pass_filter(4, 50, 5);
 
   // TODO put this stuff into a function
   // Fill altitude buffer before calculating offset
@@ -255,8 +253,8 @@ int main(void)
   uint32_t prevTime = htim2.Instance->CNT;
   float prevBaroAlt = 0;
 
-  sprintf(buf, "Filters applied, starting loop...\r\n");
-  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
+//  sprintf(buf, "Filters applied, starting loop...\r\n");
+//  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
   // warm up vertical velocity filter
   for (int i = 0; i < altSamplesToAverage; i++) {
@@ -274,7 +272,7 @@ int main(void)
   }
 
 
-  // Start 125ms watchdog timer
+  // Start 125ms watchdog timerw
   initializeIWDG();
   /* USER CODE END 2 */
 
@@ -303,25 +301,33 @@ int main(void)
     prevTime = curTime;
     prevBaroAlt = altitudeFilter.curEstimate;
 
-    // every second, set the current vertical velocity to what the average barometer reading is
-    if (htim2.Instance->CNT - secondCounter > 1000000) {
-      accelVertVelocityOffset = (mpu.verticalVelocity - baroVVFiltered);
-      secondCounter = htim2.Instance->CNT; // reset counter
-    }
+    prevBaroVV = baroVerticalVelocity;
 
-//    sprintf(buf, "baroVerticalVelocity:%f,accelVerticalVelocity:%f,calibratedVerticalVelocity:%f\r\n", baroVVFiltered, mpu.verticalVelocity, mpu.verticalVelocity - accelVertVelocityOffset);
+    float lpfBaroVV = bw_low_pass(baroVVLPF, baroVerticalVelocity);
+
+
+
+
+//    sprintf(buf, "averagedBaroVerticalVelocity:%f,accelVerticalVelocity:%f,calibratedVerticalVelocity:%f,baroVerticalVelocity:%f,compFilter:%f,emaFilter:%f,lpfBaroVV:%f\r\n", baroVVFiltered, mpu.verticalVelocity, mpu.verticalVelocity - accelVertVelocityOffset, baroVerticalVelocity, compFilterVal, emaFilterVV, lpfBaroVV);
 //    sprintf(buf, "verticalVelocityMotorAdjustment: %d\r\n", verticalVelocityMotorAdjustment);
-    sprintf(buf, "motor1:%d\r\n", motorThrottle[0]);
-    HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
+//    sprintf(buf, "motor1:%d\r\n", motorThrottle[0]);
+//    HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
     switch (RUN_MODE) {
       case TEST: {
+        HAL_GPIO_WritePin(DEBUG_LED_GPIO_Port, DEBUG_LED_Pin, 1);
         refreshIWDG();
-        rcThrottle = 50;
+
+        nRF24Receive(rxData);
+        uint32_t xVal = (rxData[0] << 24 | rxData[1] << 16 | rxData[2] << 8 | rxData[3]);
+        rcThrottle = mapRCRaw(xVal);
+
+//          sprintf(buf, "rcThrottle:%f,xVal:%lu,motors:[%f,%f,%f,%f]\r\n", rcThrottle, xVal, motorThrottle[0], motorThrottle[1], motorThrottle[2], motorThrottle[3]);
+//          HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
         angleController(&mpu, desAngles, desAngleRates, ctrlSignals);
-        updateVerticalVelocityControl(mpu.verticalVelocity - accelVertVelocityOffset, desVertVelocity, &verticalVelocityMotorAdjustment);
-        actuateMotors(motorThrottle, rcThrottle, ctrlSignals, verticalVelocityMotorAdjustment);
+        updateVerticalVelocityControl(lpfBaroVV, rcThrottle, &verticalVelocityMotorAdjustment);
+        actuateMotors(motorThrottle, ctrlSignals, &vvAccumulator, verticalVelocityMotorAdjustment);
 
         break;
       }
@@ -329,14 +335,19 @@ int main(void)
       case FLIGHT: {
         // Handle user input from remote controller
         if(isDataAvailable(rxPipe)) {
+          HAL_GPIO_WritePin(DEBUG_LED_GPIO_Port, DEBUG_LED_Pin, 1);
           refreshIWDG();
 
           nRF24Receive(rxData);
           uint32_t xVal = (rxData[0] << 24 | rxData[1] << 16 | rxData[2] << 8 | rxData[3]);
-          rcThrottle = mapPWM(xVal);
+          rcThrottle = mapRCRaw(xVal);
 
-//          angleController(&mpu, desAngles, desAngleRates, ctrlSignals);
-//          actuateMotors(motorThrottle, rcThrottle, ctrlSignals);
+//          sprintf(buf, "rcThrottle:%f,xVal:%lu,motors:[%f,%f,%f,%f]\r\n", rcThrottle, xVal, motorThrottle[0], motorThrottle[1], motorThrottle[2], motorThrottle[3]);
+//          HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
+
+          angleController(&mpu, desAngles, desAngleRates, ctrlSignals);
+          updateVerticalVelocityControl(lpfBaroVV, rcThrottle, &verticalVelocityMotorAdjustment);
+          actuateMotors(motorThrottle, ctrlSignals, &vvAccumulator, verticalVelocityMotorAdjustment);
 
           // Shut off all motors permanently if angle is too sharp
           if(fabsf(mpu.pitch) > ANGLE_MAX || fabsf(mpu.roll) > ANGLE_MAX) {
@@ -420,7 +431,7 @@ static void MX_I2C1_Init(void)
 
   /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 400000;
+  hi2c1.Init.ClockSpeed = 100000;
   hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
@@ -461,7 +472,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -499,7 +510,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -677,7 +688,7 @@ static void MX_TIM2_Init(void)
   sConfigOC.Pulse = 0;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_OC_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  if (HAL_TIM_OC_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
   }
@@ -782,7 +793,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(SD_CS_GPIO_Port, SD_CS_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_2, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(DEBUG_LED_GPIO_Port, DEBUG_LED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : BATT_ADC_Pin */
   GPIO_InitStruct.Pin = BATT_ADC_Pin;
@@ -811,12 +822,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(SD_CS_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PD2 */
-  GPIO_InitStruct.Pin = GPIO_PIN_2;
+  /*Configure GPIO pin : DEBUG_LED_Pin */
+  GPIO_InitStruct.Pin = DEBUG_LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+  HAL_GPIO_Init(DEBUG_LED_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */

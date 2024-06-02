@@ -30,6 +30,16 @@
 uint8_t bmp390Init(BMP390* bmp) {
   uint8_t errors = 0;
 
+//  // Wait until BMP390 is ready to accept a command
+//  uint8_t status = 0;
+//  errors += bmp390ReadReg(BMP390_STATUS, &status);
+//  while (!(status & 0b00010000)) {
+//    errors += bmp390ReadReg(BMP390_STATUS, &status);
+//  }
+
+  // Reset all BMP390 values to their default state
+  errors += bmp390WriteReg(BMP390_CMD, 0xB6);
+
   // Set pressure oversampling to x8
   errors += bmp390WriteReg(BMP390_OSR, 0b00000011);
 
@@ -122,11 +132,11 @@ uint8_t bmp390UpdateTemperature(BMP390* bmp) {
   uint8_t errors = 0;
 
   // Wait for data to be ready
-  uint8_t status = 0;
-  errors += bmp390ReadReg(BMP390_STATUS, &status);
-  while (!(status & BMP390_DRDY_TEMP_MASK)) {
-    errors += bmp390ReadReg(BMP390_STATUS, &status);
-  }
+//  uint8_t status = 0;
+//  errors += bmp390ReadReg(BMP390_STATUS, &status);
+//  while (!(status & BMP390_DRDY_TEMP_MASK)) {
+//    errors += bmp390ReadReg(BMP390_STATUS, &status);
+//  }
 
   // Get temperature data
   uint8_t tempVals[3];

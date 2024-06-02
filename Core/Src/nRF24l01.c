@@ -173,7 +173,11 @@ void nRF24Init() {
 
 	nRF24Reset(0);
 
+  uint8_t configCheck = nRF24ReadReg(CONFIG);
+
 	nRF24WriteReg(CONFIG, 0);
+
+  configCheck = nRF24ReadReg(CONFIG);
 
 	nRF24WriteReg(EN_AA, 0); // don't need auto-ack
 
@@ -181,9 +185,13 @@ void nRF24Init() {
 
 	nRF24WriteReg(SETUP_AW, 0b11); // 5 bytes for TX/RX address
 
+	uint8_t test = nRF24ReadReg(SETUP_AW);
+
 	nRF24WriteReg(SETUP_RETR, 0); // not using auto-ack
 
 	nRF24WriteReg(RF_CH, 0b01111111); // will be setup during TX or RX
+
+  test = nRF24ReadReg(RF_CH);
 
 	nRF24WriteReg(RF_SETUP, 0b1110); // power = 2db, data rate = 2Mbps
 

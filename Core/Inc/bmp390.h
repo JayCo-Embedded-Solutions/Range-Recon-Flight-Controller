@@ -50,6 +50,7 @@ extern I2C_HandleTypeDef hi2c1;
 #define BMP390_PAR_P9_H 0x43
 #define BMP390_PAR_P10  0x44
 #define BMP390_PAR_P11  0x45
+#define BMP390_CMD      0x7E
 
 #define BMP390_DRDY_TEMP_MASK   0b01000000
 #define BMP390_DRDY_PRESS_MASK  0b00100000

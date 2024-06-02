@@ -6,6 +6,7 @@
  */
 
 #include "flightController.h"
+#include <stdio.h>
 
 pidController rateModePitchController;
 pidController rateModeRollController;
@@ -15,6 +16,8 @@ pidController angleModePitchController;
 pidController angleModeRollController;
 
 pidController verticalVelocityController;
+
+extern UART_HandleTypeDef huart4;
 
 /**
  * Initializes all necessary elements of the flight controller (gyro update time, accelerometer filters, PID controllers)
@@ -40,7 +43,7 @@ void flightControllerInit() {
  * @param desiredAngularRates: pointer to a 3-element array containing the desired angular acceleration rates in the x, y, z directions
  * @param controlSignals: pointer to a 3-element array containing the required compensation in the x, y, z directions
  */
-void rateController(MPU6500* mpu, float* desiredAngularRates, int16_t* controlSignals) {
+void rateController(MPU6500* mpu, float* desiredAngularRates, float* controlSignals) {
 	controlSignals[0] = pidUpdateOutput(&rateModePitchController, mpu->angularVelocityX, desiredAngularRates[0]);
 	controlSignals[1] = pidUpdateOutput(&rateModeRollController, mpu->angularVelocityY, desiredAngularRates[1]);
 	controlSignals[2] = pidUpdateOutput(&rateModeYawController, mpu->angularVelocityZ, desiredAngularRates[2]);
@@ -53,7 +56,7 @@ void rateController(MPU6500* mpu, float* desiredAngularRates, int16_t* controlSi
  * @param inputVal: the actual value of a signal
  * @param desiredVal: the desired value of a signal
  */
-void angleController(MPU6500* mpu, float* desiredAngles, float* desiredAngularRates, int16_t* controlSignals) {
+void angleController(MPU6500* mpu, float* desiredAngles, float* desiredAngularRates, float* controlSignals) {
 	desiredAngularRates[0] = -1.0f*pidUpdateOutput(&angleModePitchController, mpu->pitch, desiredAngles[0]);
 	desiredAngularRates[1] = -1.0f*pidUpdateOutput(&angleModeRollController, mpu->roll, desiredAngles[1]);
 
@@ -65,8 +68,11 @@ void angleController(MPU6500* mpu, float* desiredAngles, float* desiredAngularRa
  *
  * NOTE: Have to multiply by -1 because the pid controller was built with decreasing the motor speed in mind (for angle control).
  */
-void updateVerticalVelocityControl(float measuredVerticalVelocity, float desiredVerticalVelocity, int16_t* verticalVelocityMotorAdjustment) {
+void updateVerticalVelocityControl(float measuredVerticalVelocity, float desiredVerticalVelocity, float* verticalVelocityMotorAdjustment) {
   *verticalVelocityMotorAdjustment = -1 * pidUpdateOutput(&verticalVelocityController, measuredVerticalVelocity, desiredVerticalVelocity);
+//  char buf[100];
+//  sprintf(buf, "pid output: %f\r\n", *verticalVelocityMotorAdjustment);
+//  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 }
 
 /**
@@ -77,11 +83,12 @@ void updateVerticalVelocityControl(float measuredVerticalVelocity, float desired
  * @param controlSignals: pointer to a 3-element array containing controller compensation values for the pitch, roll, yaw directions
  * @param verticalVelocityMotorAdjustment: TODO
  */
-void actuateMotors(uint8_t* currentMotorThrottle, uint8_t rcThrottle, int16_t* controlSignals, int16_t verticalVelocityMotorAdjustment) {
-	currentMotorThrottle[0] = rcThrottle - controlSignals[0] + controlSignals[1] + controlSignals[2] + verticalVelocityMotorAdjustment;
-	currentMotorThrottle[1] = rcThrottle - controlSignals[0] - controlSignals[1] - controlSignals[2] + verticalVelocityMotorAdjustment;
-	currentMotorThrottle[2] = rcThrottle + controlSignals[0] + controlSignals[1] - controlSignals[2] + verticalVelocityMotorAdjustment;
-	currentMotorThrottle[3] = rcThrottle + controlSignals[0] - controlSignals[1] + controlSignals[2] + verticalVelocityMotorAdjustment;
+void actuateMotors(float* currentMotorThrottle, float* controlSignals, float* vvAccumulator, float verticalVelocityMotorAdjustment) {
+  *vvAccumulator += verticalVelocityMotorAdjustment;
+	currentMotorThrottle[0] = PULSE_MIN - controlSignals[0] + controlSignals[1] + controlSignals[2] + *vvAccumulator;
+	currentMotorThrottle[1] = PULSE_MIN - controlSignals[0] - controlSignals[1] - controlSignals[2] + *vvAccumulator;
+	currentMotorThrottle[2] = PULSE_MIN + controlSignals[0] + controlSignals[1] - controlSignals[2] + *vvAccumulator;
+	currentMotorThrottle[3] = PULSE_MIN + controlSignals[0] - controlSignals[1] + controlSignals[2] + *vvAccumulator;
 
 	// limit motor speeds to between 50 and 80
 	for(uint8_t i = 0; i < 4; i++) {
@@ -139,11 +146,16 @@ void getKalmanAltitude(MPU6500* mpu, BMP390* bmp, float bmpOffset, float* altitu
  * Maps raw input from joystick (0-4096) to a PWM output (50-100).
  *
  * TODO make this work for negative values?
+ * TODO update this function to be accurate
  *
  * @param joystickVal: The raw value from the joystick, which should range from 0-4096.
  *
  * @returns: The mapped value to send over PWM, which will range from 50-100.
  */
-uint8_t mapPWM(uint16_t joystickVal) {
-  return (joystickVal >= 2200) ? (50 * joystickVal) / 1896 - 8 : 50;
+float mapRCRaw(uint16_t joystickVal) {
+  // Dead zone
+  if (joystickVal > 2000 && joystickVal < 2100) {
+    return 0;
+  }
+  return 1.5*(joystickVal - 2048) / 2048;
 }
