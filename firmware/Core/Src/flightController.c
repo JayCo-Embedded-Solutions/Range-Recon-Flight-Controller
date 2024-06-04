@@ -44,9 +44,14 @@ void flightControllerInit() {
  * @param controlSignals: pointer to a 3-element array containing the required compensation in the x, y, z directions
  */
 void rateController(MPU6500* mpu, float* desiredAngularRates, float* controlSignals) {
-	controlSignals[0] = pidUpdateOutput(&rateModePitchController, mpu->angularVelocityX, desiredAngularRates[0]);
-	controlSignals[1] = pidUpdateOutput(&rateModeRollController, mpu->angularVelocityY, desiredAngularRates[1]);
+	controlSignals[0] = pidUpdateOutput(&rateModePitchController, MAGICAL_GYRO_VOODOO_NUMBER*mpu->angularVelocityX, desiredAngularRates[0]);
+	controlSignals[1] = pidUpdateOutput(&rateModeRollController, MAGICAL_GYRO_VOODOO_NUMBER*mpu->angularVelocityY, desiredAngularRates[1]);
 	controlSignals[2] = pidUpdateOutput(&rateModeYawController, mpu->angularVelocityZ, desiredAngularRates[2]);
+
+//	char buf[100];
+//  sprintf(buf, "controlSignals[0]:%f,controlSignals[1]:%f\r\n\r\n", controlSignals[0], controlSignals[1]);
+//  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
+
 }
 
 /**
@@ -59,6 +64,10 @@ void rateController(MPU6500* mpu, float* desiredAngularRates, float* controlSign
 void angleController(MPU6500* mpu, float* desiredAngles, float* desiredAngularRates, float* controlSignals) {
 	desiredAngularRates[0] = -1.0f*pidUpdateOutput(&angleModePitchController, mpu->pitch, desiredAngles[0]);
 	desiredAngularRates[1] = -1.0f*pidUpdateOutput(&angleModeRollController, mpu->roll, desiredAngles[1]);
+//
+//	char buf[100];
+//	sprintf(buf, "desiredAngularRates[0]:%f,desiredAngularRates[1]:%f\r\n", desiredAngularRates[0], desiredAngularRates[1]);
+//	HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
 	rateController(mpu, desiredAngularRates, controlSignals);
 }
@@ -71,7 +80,7 @@ void angleController(MPU6500* mpu, float* desiredAngles, float* desiredAngularRa
 void updateVerticalVelocityControl(float measuredVerticalVelocity, float desiredVerticalVelocity, float* verticalVelocityMotorAdjustment) {
   *verticalVelocityMotorAdjustment = -1 * pidUpdateOutput(&verticalVelocityController, measuredVerticalVelocity, desiredVerticalVelocity);
 //  char buf[100];
-//  sprintf(buf, "pid output: %f\r\n", *verticalVelocityMotorAdjustment);
+//  sprintf(buf, "pid output: %f,", *verticalVelocityMotorAdjustment);
 //  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 }
 
@@ -83,12 +92,18 @@ void updateVerticalVelocityControl(float measuredVerticalVelocity, float desired
  * @param controlSignals: pointer to a 3-element array containing controller compensation values for the pitch, roll, yaw directions
  * @param verticalVelocityMotorAdjustment: TODO
  */
-void actuateMotors(float* currentMotorThrottle, float* controlSignals, float* vvAccumulator, float verticalVelocityMotorAdjustment) {
+void actuateMotors(float* currentMotorThrottle, float* controlSignals, float* vvAccumulator, float verticalVelocityMotorAdjustment, float rcThrottle) {
   *vvAccumulator += verticalVelocityMotorAdjustment;
-	currentMotorThrottle[0] = PULSE_MIN - controlSignals[0] + controlSignals[1] + controlSignals[2] + *vvAccumulator;
-	currentMotorThrottle[1] = PULSE_MIN - controlSignals[0] - controlSignals[1] - controlSignals[2] + *vvAccumulator;
-	currentMotorThrottle[2] = PULSE_MIN + controlSignals[0] + controlSignals[1] - controlSignals[2] + *vvAccumulator;
-	currentMotorThrottle[3] = PULSE_MIN + controlSignals[0] - controlSignals[1] + controlSignals[2] + *vvAccumulator;
+//  char buf[100];
+//  sprintf(buf, "accumulator:%f\r\n", *vvAccumulator);
+//  HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
+  if (*vvAccumulator < 0) {
+    *vvAccumulator = 0;
+  }
+	currentMotorThrottle[0] = rcThrottle - controlSignals[0] + controlSignals[1] + controlSignals[2];
+	currentMotorThrottle[1] = rcThrottle - controlSignals[0] - controlSignals[1] - controlSignals[2];
+	currentMotorThrottle[3] = rcThrottle + controlSignals[0] - controlSignals[1] + controlSignals[2];
+	currentMotorThrottle[2] = rcThrottle + controlSignals[0] + controlSignals[1] - controlSignals[2];
 
 	// limit motor speeds to between 50 and 80
 	for(uint8_t i = 0; i < 4; i++) {
@@ -158,4 +173,15 @@ float mapRCRaw(uint16_t joystickVal) {
     return 0;
   }
   return 1.5*(joystickVal - 2048) / 2048;
+}
+
+/**
+ * TODO
+ */
+float mapPWM(uint16_t joystickVal) {
+  if (joystickVal > 2000 && joystickVal < 2100) {
+    return 50;
+  }
+
+  return (float)(joystickVal - 2100) / 60 + 50;
 }
