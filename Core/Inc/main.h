@@ -59,14 +59,12 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define MPU6500_NCS_Pin GPIO_PIN_12
-#define MPU6500_NCS_GPIO_Port GPIOB
-#define NRF24_CE_Pin GPIO_PIN_7
-#define NRF24_CE_GPIO_Port GPIOC
-#define DBG_LED_Pin GPIO_PIN_2
-#define DBG_LED_GPIO_Port GPIOD
-#define NRF24_CS_Pin GPIO_PIN_6
-#define NRF24_CS_GPIO_Port GPIOB
+#define LED_ONB_Pin GPIO_PIN_13
+#define LED_ONB_GPIO_Port GPIOC
+#define BATT_CHECK_Pin GPIO_PIN_3
+#define BATT_CHECK_GPIO_Port GPIOA
+#define MPU6500_CS_Pin GPIO_PIN_12
+#define MPU6500_CS_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
