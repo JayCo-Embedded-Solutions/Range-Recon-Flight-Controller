@@ -33,11 +33,11 @@ typedef struct {
 	// battery voltage
 	float battVoltage;
 
-} battMonitor;
+} batteryMonitor;
 
-void battMonitorInit(battMonitor* monitor);
-void battMonitorEnable(battMonitor* monitor);
-void battMonitorDisable(battMonitor* monitor);
-float battMonitorUpdate(battMonitor* monitor);
+void batteryMonitorInit(batteryMonitor* monitor);
+void batteryMonitorEnable(batteryMonitor* monitor);
+void batteryMonitorDisable(batteryMonitor* monitor);
+float batteryMonitorUpdate(batteryMonitor* monitor);
 
 #endif /* INC_BATTERYMONITOR_H_ */

@@ -18,6 +18,7 @@
  * @returns: The number of errors that occurred during transmission.
  */
 uint8_t mpu6500Init(MPU6500* mpu) {
+
   uint8_t errors = 0;
 
   // Reset internal registers to restore default settings
