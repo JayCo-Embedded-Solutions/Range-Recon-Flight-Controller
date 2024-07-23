@@ -51,16 +51,35 @@
 #define REUSE_TX_PL   0xE3
 #define NOP           0xFF
 
+typedef enum {
+	txMode,
+	rxMode
+} nrf24Mode;
+
+typedef struct {
+	// rx and tx data
+	uint8_t rxData[8];
+	uint8_t txData[8];
+
+	// rx address, shouldn't need to change
+	uint8_t* rxAddress;
+
+	// channelNum, rxPipe
+	uint8_t channelNum;
+	uint8_t rxPipe;
+
+} NRF24;
+
+void nRF24Init(NRF24* nrf, uint8_t channelNum, uint8_t* address, nrf24Mode mode);
 void nRF24WriteReg(uint8_t reg, uint8_t data);
 void nRF24WriteRegMulti(uint8_t reg, uint8_t* data, int size);
 uint8_t nRF24ReadReg(uint8_t reg);
 void nRF24ReadRegMulti(uint8_t reg, uint8_t* data, int size);
 void nRF24SendCmd(uint8_t cmd);
-void nRF24Init();
 void nRF24TxMode(uint8_t* address, uint8_t channel);
 int nRF24Transmit(uint8_t* data);
 void nRF24RxMode(uint8_t* address, uint8_t channel);
 bool isDataAvailable(uint8_t pipeNum);
-void nRF24Receive(uint8_t* data);
+void nRF24Receive(NRF24* nrf);
 
 #endif /* SRC_NRF24L01_H_ */

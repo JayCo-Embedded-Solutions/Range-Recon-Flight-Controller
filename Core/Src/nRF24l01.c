@@ -167,7 +167,7 @@ void nRF24Reset(uint8_t reg) {
 /**
  * Initializes the nRF24's configuration registers.
  */
-void nRF24Init() {
+void nRF24Init(NRF24* nrf, uint8_t channelNum, uint8_t* address, nrf24Mode mode) {
 	// disable the chip before configuring the device
 	HAL_GPIO_WritePin(NRF24_CE_PORT, NRF24_CE_PIN, GPIO_PIN_RESET);
 
@@ -197,6 +197,14 @@ void nRF24Init() {
 
 	// enable the chip again after configuring
 	HAL_GPIO_WritePin(NRF24_CE_PORT, NRF24_CE_PIN, GPIO_PIN_SET);
+
+	// initialize struct variables
+	nrf->channelNum = channelNum;
+
+	if(mode == rxMode) {
+		nrf->rxAddress = address;
+		nRF24RxMode(nrf->rxAddress, nrf->channelNum);
+	}
 }
 
 /**
@@ -315,7 +323,7 @@ bool isDataAvailable(uint8_t pipeNum) {
  *
  * @param data: The address of the buffer to store the pipe data.
  */
-void nRF24Receive(uint8_t* data) {
+void nRF24Receive(NRF24* nrf) {
   HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_RESET);
 
   // tell the nRF24 that you want to receive data from data pipe
@@ -324,7 +332,7 @@ void nRF24Receive(uint8_t* data) {
   HAL_SPI_Transmit(NRF24_SPI, &cmdToSend, 1, 100);
 
   // read the payload
-  HAL_SPI_Receive(NRF24_SPI, data, 8, 1000);
+  HAL_SPI_Receive(NRF24_SPI, nrf->rxData, 8, 1000);
 
   HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_SET);
 
@@ -332,4 +340,6 @@ void nRF24Receive(uint8_t* data) {
 
   // flush the receive data pipe
   nRF24SendCmd(FLUSH_RX);
+
+
 }

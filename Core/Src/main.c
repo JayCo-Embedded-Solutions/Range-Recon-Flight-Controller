@@ -133,13 +133,10 @@ int main(void)
   motorController MOTORCONTROLLER;
   motorControllerInit(&MOTORCONTROLLER, htim1);
 
+  NRF24 RFMOD;
   uint8_t rxAddress[5] = {0xEE, 0xDD, 0xCC, 0xBB, 0xAA};
   uint8_t channelNum = 10;
-  uint8_t rxPipe = 1;
-  uint8_t rxData[8];
-
-  nRF24Init();
-  nRF24RxMode(rxAddress, channelNum);
+  nRF24Init(&RFMOD, channelNum, rxAddress, rxMode);
 
   char buf[100];
 
@@ -152,9 +149,11 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	batteryMonitorUpdate(&BATTMNTR);
+	nRF24Receive(&RFMOD);
 
-	sprintf(buf, "Battery Voltage: %0.2f Volts \r\n", BATTMNTR.battVoltage);
+	uint32_t xVal = (RFMOD.rxData[0] << 24 | RFMOD.rxData[1] << 16 | RFMOD.rxData[2] << 8 | RFMOD.rxData[3]);
+
+	sprintf(buf, "Rx Data: %d \r\n", xVal);
 
 	HAL_UART_Transmit(&huart4, (uint8_t*)buf, strlen(buf), HAL_MAX_DELAY);
 
@@ -558,34 +557,34 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, LED_ONB_Pin|GPIO_PIN_4|GPIO_PIN_5, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, GPIO_Output_Pin|GPIO_OutputC4_Pin|GPIO_OutputC5_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(BATT_CHECK_GPIO_Port, BATT_CHECK_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIO_OutputA3_GPIO_Port, GPIO_OutputA3_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(MPU6500_CS_GPIO_Port, MPU6500_CS_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIO_OutputB12_GPIO_Port, GPIO_OutputB12_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : LED_ONB_Pin PC4 PC5 */
-  GPIO_InitStruct.Pin = LED_ONB_Pin|GPIO_PIN_4|GPIO_PIN_5;
+  /*Configure GPIO pins : GPIO_Output_Pin GPIO_OutputC4_Pin GPIO_OutputC5_Pin */
+  GPIO_InitStruct.Pin = GPIO_Output_Pin|GPIO_OutputC4_Pin|GPIO_OutputC5_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : BATT_CHECK_Pin */
-  GPIO_InitStruct.Pin = BATT_CHECK_Pin;
+  /*Configure GPIO pin : GPIO_OutputA3_Pin */
+  GPIO_InitStruct.Pin = GPIO_OutputA3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(BATT_CHECK_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIO_OutputA3_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : MPU6500_CS_Pin */
-  GPIO_InitStruct.Pin = MPU6500_CS_Pin;
+  /*Configure GPIO pin : GPIO_OutputB12_Pin */
+  GPIO_InitStruct.Pin = GPIO_OutputB12_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(MPU6500_CS_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIO_OutputB12_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
