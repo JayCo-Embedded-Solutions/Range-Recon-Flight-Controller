@@ -24,18 +24,18 @@ extern SPI_HandleTypeDef hspi1;
  * @param data: The data to write to the register.
  */
 void nRF24WriteReg(uint8_t reg, uint8_t data) {
-	uint8_t buf[2];
-	buf[0] = reg | (1 << 5);
-	buf[1] = data;
+  uint8_t buf[2];
+  buf[0] = reg | (1 << 5);
+  buf[1] = data;
 
-	// Pull CS pin low
-	HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_RESET);
+  // Pull CS pin low
+  HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_RESET);
 
-	// Transmit reg address + data
-	HAL_SPI_Transmit(NRF24_SPI, buf, 2, 1000);
+  // Transmit reg address + data
+  HAL_SPI_Transmit(NRF24_SPI, buf, 2, 1000);
 
-	// Pull CS pin high; data transfer is complete
-	HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_SET);
+  // Pull CS pin high; data transfer is complete
+  HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_SET);
 }
 
 /**
@@ -46,18 +46,18 @@ void nRF24WriteReg(uint8_t reg, uint8_t data) {
  * @param size: The size (in bytes) of the data to be written.
  */
 void nRF24WriteRegMulti(uint8_t reg, uint8_t* data, int size) {
-	uint8_t buf[1];
-	buf[0] = reg | (1 << 5);
+  uint8_t buf[1];
+  buf[0] = reg | (1 << 5);
 
-	// Pull CS pin low
-	HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_RESET);
+  // Pull CS pin low
+  HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_RESET);
 
-	// Transmit data
-	HAL_SPI_Transmit(NRF24_SPI, buf, 1, 100); // reg address
-	HAL_SPI_Transmit(NRF24_SPI, data, size, 1000); // data
+  // Transmit data
+  HAL_SPI_Transmit(NRF24_SPI, buf, 1, 100); // reg address
+  HAL_SPI_Transmit(NRF24_SPI, data, size, 1000); // data
 
-	// Pull CS pin high; data transfer is complete
-	HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_SET);
+  // Pull CS pin high; data transfer is complete
+  HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_SET);
 }
 
 /**
@@ -68,19 +68,19 @@ void nRF24WriteRegMulti(uint8_t reg, uint8_t* data, int size) {
  * @returns: The data that was read.
  */
 uint8_t nRF24ReadReg(uint8_t reg) {
-	uint8_t data=0;
+  uint8_t data=0;
 
-	// Pull CS pin low
-	HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_RESET);
+  // Pull CS pin low
+  HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_RESET);
 
-	// Transmit address
-	HAL_SPI_Transmit(NRF24_SPI, &reg, 1, 100);
-	HAL_SPI_Receive(NRF24_SPI, &data, 1, 100);
+  // Transmit address
+  HAL_SPI_Transmit(NRF24_SPI, &reg, 1, 100);
+  HAL_SPI_Receive(NRF24_SPI, &data, 1, 100);
 
-	// Pull CS pin high; data transfer is complete
-	HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_SET);
+  // Pull CS pin high; data transfer is complete
+  HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_SET);
 
-	return data;
+  return data;
 }
 
 /**
@@ -93,15 +93,15 @@ uint8_t nRF24ReadReg(uint8_t reg) {
  * @returns: The data that was read.
  */
 void nRF24ReadRegMulti(uint8_t reg, uint8_t* data, int size) {
-	// Pull CS pin low
-	HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_RESET);
+  // Pull CS pin low
+  HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_RESET);
 
-	// Transmit address
-	HAL_SPI_Transmit(NRF24_SPI, &reg, 1, 100);
-	HAL_SPI_Receive(NRF24_SPI, data, size, 1000);
+  // Transmit address
+  HAL_SPI_Transmit(NRF24_SPI, &reg, 1, 100);
+  HAL_SPI_Receive(NRF24_SPI, data, size, 1000);
 
-	// Pull CS pin high; data transfer is complete
-	HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_SET);
+  // Pull CS pin high; data transfer is complete
+  HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_SET);
 }
 
 /**
@@ -110,14 +110,14 @@ void nRF24ReadRegMulti(uint8_t reg, uint8_t* data, int size) {
  * @param cmd: The command to send.
  */
 void nRF24SendCmd(uint8_t cmd) {
-	// Pull CS pin low
-	HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_RESET);
+  // Pull CS pin low
+  HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_RESET);
 
-	// Transmit command
-	HAL_SPI_Transmit(NRF24_SPI, &cmd, 1, 100);
+  // Transmit command
+  HAL_SPI_Transmit(NRF24_SPI, &cmd, 1, 100);
 
-	// Pull CS pin high; data transfer is complete
-	HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_SET);
+  // Pull CS pin high; data transfer is complete
+  HAL_GPIO_WritePin(NRF24_CS_PORT, NRF24_CS_PIN, GPIO_PIN_SET);
 }
 
 /**

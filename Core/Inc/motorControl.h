@@ -12,27 +12,27 @@
 #define MOTOR_SPEED_MAX			100
 
 extern enum {
-	frontRightMotor,
-	frontLeftMotor,
-	rearRightMotor,
-	rearLeftMotor
+  frontRightMotor,
+  frontLeftMotor,
+  rearRightMotor,
+  rearLeftMotor
 } motor;
 
 typedef struct {
-	// timer handle for the timer containing the motor PWM channels
-	TIM_HandleTypeDef motorTimerHandle;
+  // timer handle for the timer containing the motor PWM channels
+  TIM_HandleTypeDef motorTimerHandle;
 
-	// store timer channel macros for each channel
-	uint32_t frontRightPwmChannel;
-	uint32_t frontLeftPwmChannel;
-	uint32_t rearRightPwmChannel;
-	uint32_t rearLeftPwmChannel;
+  // store timer channel macros for each channel
+  uint32_t frontRightPwmChannel;
+  uint32_t frontLeftPwmChannel;
+  uint32_t rearRightPwmChannel;
+  uint32_t rearLeftPwmChannel;
 
-	// current speed of each motor
-	uint8_t frontRightSpeed;
-	uint8_t frontLeftSpeed;
-	uint8_t rearRightSpeed;
-	uint8_t rearLeftSpeed;
+  // current speed of each motor
+  uint8_t frontRightSpeed;
+  uint8_t frontLeftSpeed;
+  uint8_t rearRightSpeed;
+  uint8_t rearLeftSpeed;
 } motorController;
 
 void motorControllerInit(motorController* motrController, TIM_HandleTypeDef timerHandle);

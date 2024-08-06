@@ -52,21 +52,21 @@
 #define NOP           0xFF
 
 typedef enum {
-	txMode,
-	rxMode
+  txMode,
+  rxMode
 } nrf24Mode;
 
 typedef struct {
-	// rx and tx data
-	uint8_t rxData[8];
-	uint8_t txData[8];
+  // rx and tx data
+  uint8_t rxData[8];
+  uint8_t txData[8];
 
-	// rx address, shouldn't need to change
-	uint8_t* rxAddress;
+  // rx address, shouldn't need to change
+  uint8_t* rxAddress;
 
-	// channelNum, rxPipe
-	uint8_t channelNum;
-	uint8_t rxPipe;
+  // channelNum, rxPipe
+  uint8_t channelNum;
+  uint8_t rxPipe;
 
 } NRF24;
 

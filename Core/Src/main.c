@@ -19,6 +19,12 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
+/*
+ * - Notch filters for frame resonances
+ * - Spectrogram for gyro data. Magnitude versus frequency
+ * - Betaflight filtering and tuning tutorials
+ */
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stdio.h"

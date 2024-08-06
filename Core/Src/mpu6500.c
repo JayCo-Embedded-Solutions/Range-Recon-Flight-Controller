@@ -267,27 +267,27 @@ void mpu6500UpdateAngularVelocityAngles(MPU6500* mpu, float timeDiff) {
 uint8_t mpu6500CalibrateGyro(MPU6500* mpu) {
   uint8_t errors = 0;
 
-	// declare number of desired samples, arrays to store individual and total sample data
-	uint16_t numSamples = 2000;
-	float offsetData[] = {0, 0, 0};
+  // declare number of desired samples, arrays to store individual and total sample data
+  uint16_t numSamples = 2000;
+  float offsetData[] = {0, 0, 0};
 
-	// collect samples and store the sum in offSetData array
-	for(uint16_t i = 0; i < numSamples; i++) {
-		errors += mpu6500UpdateAngularVelocity(mpu);
+  // collect samples and store the sum in offSetData array
+  for(uint16_t i = 0; i < numSamples; i++) {
+	  errors += mpu6500UpdateAngularVelocity(mpu);
 
-		offsetData[0] += mpu->angularVelocityX;
-		offsetData[1] += mpu->angularVelocityY;
-		offsetData[2] += mpu->angularVelocityZ;
+	  offsetData[0] += mpu->angularVelocityX;
+	  offsetData[1] += mpu->angularVelocityY;
+	  offsetData[2] += mpu->angularVelocityZ;
 
-		HAL_Delay(1);
-	}
+	  HAL_Delay(1);
+  }
 
-	// assign offset values based on the average
-	mpu->gyroOffsetX = offsetData[0] / numSamples;
-	mpu->gyroOffsetY = offsetData[1] / numSamples;
-	mpu->gyroOffsetZ = offsetData[2] / numSamples;
+  // assign offset values based on the average
+  mpu->gyroOffsetX = offsetData[0] / numSamples;
+  mpu->gyroOffsetY = offsetData[1] / numSamples;
+  mpu->gyroOffsetZ = offsetData[2] / numSamples;
 
-	return errors;
+  return errors;
 }
 
 /**
@@ -301,27 +301,27 @@ uint8_t mpu6500CalibrateGyro(MPU6500* mpu) {
 uint8_t mpu6500CalibrateAccel(MPU6500* mpu) {
   uint8_t errors = 0;
 
-	// declare number of desired samples, arrays to store individual and total sample data
-	uint16_t numSamples = 2000;
-	float offsetData[] = {0, 0, 0};
+  // declare number of desired samples, arrays to store individual and total sample data
+  uint16_t numSamples = 2000;
+  float offsetData[] = {0, 0, 0};
 
-	// collect samples and store the sum in offSetData array
-	for(uint16_t i = 0; i < numSamples; i++) {
-		errors += mpu6500UpdateAcceleration(mpu);
+  // collect samples and store the sum in offSetData array
+  for(uint16_t i = 0; i < numSamples; i++) {
+	  errors += mpu6500UpdateAcceleration(mpu);
 
-		offsetData[0] += mpu->accelerationX;
-		offsetData[1] += mpu->accelerationY;
-		offsetData[2] += mpu->accelerationZ - 1; // Subtract 1 to account for gravity (assumes upright position)
+	  offsetData[0] += mpu->accelerationX;
+	  offsetData[1] += mpu->accelerationY;
+	  offsetData[2] += mpu->accelerationZ - 1; // Subtract 1 to account for gravity (assumes upright position)
 
-		HAL_Delay(1);
-	}
+	  HAL_Delay(1);
+  }
 
-	// Get the average offset and store that in the struct.
-	mpu->accelOffsetX = offsetData[0] / numSamples;
-	mpu->accelOffsetY = offsetData[1] / numSamples;
-	mpu->accelOffsetZ = offsetData[2] / numSamples;
+  // Get the average offset and store that in the struct.
+  mpu->accelOffsetX = offsetData[0] / numSamples;
+  mpu->accelOffsetY = offsetData[1] / numSamples;
+  mpu->accelOffsetZ = offsetData[2] / numSamples;
 
-	return errors;
+  return errors;
 }
 
 /**

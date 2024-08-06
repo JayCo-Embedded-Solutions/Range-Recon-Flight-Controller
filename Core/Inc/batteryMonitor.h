@@ -27,11 +27,11 @@ extern ADC_HandleTypeDef hadc1;
 // battery monitor struct
 typedef struct {
 
-	// raw value from ADC
-	uint16_t rawVal;
+  // raw value from ADC
+  uint16_t rawVal;
 
-	// battery voltage
-	float battVoltage;
+  // battery voltage
+  float battVoltage;
 
 } batteryMonitor;
 
